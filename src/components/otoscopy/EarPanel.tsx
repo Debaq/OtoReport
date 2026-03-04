@@ -31,6 +31,8 @@ export function EarPanel({ side, data, patientId, sessionId, onChange, onMoveIma
   const [previewImage, setPreviewImage] = useState<EarImage | null>(null);
   const [annotatingImage, setAnnotatingImage] = useState<EarImage | null>(null);
   const [annotatingUrl, setAnnotatingUrl] = useState("");
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [loadingAnnotator, setLoadingAnnotator] = useState(false);
 
   const { addImage, removeImage, toggleSelected, setPrimary, loadImageUrl } =
     useEarImages({
@@ -77,10 +79,15 @@ export function EarPanel({ side, data, patientId, sessionId, onChange, onMoveIma
     });
     if (selected) {
       const paths = Array.isArray(selected) ? selected : [selected];
-      for (const filePath of paths) {
-        const data = await readFile(filePath);
-        const ext = filePath.split(".").pop() || "png";
-        await addImage(new Uint8Array(data), "file", ext);
+      setLoadingFiles(true);
+      try {
+        for (const filePath of paths) {
+          const data = await readFile(filePath);
+          const ext = filePath.split(".").pop() || "png";
+          await addImage(new Uint8Array(data), "file", ext);
+        }
+      } finally {
+        setLoadingFiles(false);
       }
     }
   }
@@ -154,9 +161,14 @@ export function EarPanel({ side, data, patientId, sessionId, onChange, onMoveIma
             onRemove={removeImage}
             onPreview={setPreviewImage}
             onAnnotate={async (img) => {
-              const url = await loadImageUrl(img.filename);
-              setAnnotatingUrl(url);
-              setAnnotatingImage(img);
+              setLoadingAnnotator(true);
+              try {
+                const url = await loadImageUrl(img.filename);
+                setAnnotatingUrl(url);
+                setAnnotatingImage(img);
+              } finally {
+                setLoadingAnnotator(false);
+              }
             }}
             onMoveToOtherEar={!readOnly ? onMoveImage : undefined}
             onClearAnnotations={(id) => {
@@ -183,8 +195,20 @@ export function EarPanel({ side, data, patientId, sessionId, onChange, onMoveIma
         <PhotoPreview
           loadImage={loadPreviewImage}
           rotation={previewImage.rotation}
+          crop={previewImage.crop}
           onClose={() => setPreviewImage(null)}
         />
+      )}
+
+      {(loadingFiles || loadingAnnotator) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="flex flex-col items-center gap-3 rounded-xl bg-white px-8 py-6 shadow-lg">
+            <div className="h-8 w-8 animate-spin rounded-full border-3 border-blue-600 border-t-transparent" />
+            <p className="text-sm font-medium text-gray-700">
+              {loadingFiles ? "Cargando imágenes..." : "Abriendo editor..."}
+            </p>
+          </div>
+        </div>
       )}
 
       {annotatingImage && annotatingUrl && (
@@ -192,10 +216,11 @@ export function EarPanel({ side, data, patientId, sessionId, onChange, onMoveIma
           imageUrl={annotatingUrl}
           annotations={annotatingImage.annotations}
           rotation={annotatingImage.rotation}
-          onSave={(annotations, rotation) => {
+          crop={annotatingImage.crop}
+          onSave={(annotations, rotation, crop) => {
             const updated = data.images.map((img) =>
               img.id === annotatingImage.id
-                ? { ...img, annotations, rotation }
+                ? { ...img, annotations, rotation, crop }
                 : img
             );
             onChange({ ...data, images: updated });

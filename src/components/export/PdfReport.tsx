@@ -9,6 +9,31 @@ import {
 import type { Report, EarData, WorkspaceConfig } from "@/types";
 import type { EarFindings } from "@/types/findings";
 
+const DEFAULT_SECTION_ORDER = ["header", "logo", "patient_info", "exam_info", "diagram", "findings", "observations", "images", "annotations", "conclusion", "footer"];
+
+const EAR_CONTENT_KEYS = new Set(["diagram", "findings", "observations", "images", "annotations"]);
+
+function getSectionOrder(order: string[] | undefined): string[] {
+  if (!order || order.length === 0) return DEFAULT_SECTION_ORDER;
+  const missing = DEFAULT_SECTION_ORDER.filter((s) => !order.includes(s));
+  return [...order.filter((s) => DEFAULT_SECTION_ORDER.includes(s)), ...missing];
+}
+
+function getMainSections(order: string[]): { mainOrder: string[]; earContentOrder: string[] } {
+  const earContentOrder: string[] = [];
+  const mainOrder: string[] = [];
+  let earAdded = false;
+  for (const key of order) {
+    if (EAR_CONTENT_KEYS.has(key)) {
+      earContentOrder.push(key);
+      if (!earAdded) { mainOrder.push("__ear__"); earAdded = true; }
+    } else if (key !== "logo") {
+      mainOrder.push(key);
+    }
+  }
+  return { mainOrder, earContentOrder };
+}
+
 const IMAGE_SIZES = {
   small: { width: 80, height: 60 },
   medium: { width: 120, height: 90 },
@@ -161,6 +186,7 @@ function EarSection({
   secondaryImages,
   diagramUrl,
   config,
+  contentOrder,
 }: {
   title: string;
   side: "right" | "left";
@@ -169,6 +195,7 @@ function EarSection({
   secondaryImages: string[];
   diagramUrl?: string;
   config: WorkspaceConfig;
+  contentOrder: string[];
 }) {
   const secSize = IMAGE_SIZES[config.image_size] || IMAGE_SIZES.medium;
   const earColor = EAR_COLORS[side];
@@ -178,53 +205,62 @@ function EarSection({
       <Text style={{ fontSize: 11, fontWeight: "bold", color: earColor, marginBottom: 6 }}>
         {title}
       </Text>
-      {config.show_diagram && diagramUrl && (
-        <Image
-          src={diagramUrl}
-          style={{
-            width: 100,
-            height: 100,
-            marginBottom: 6,
-          }}
-        />
-      )}
-      {config.show_findings && <ActiveFindings findings={data.findings} />}
-      {config.show_observations && data.observations && (
-        <Text style={[styles.findingItem, { marginTop: 4 }]}>
-          Obs: {data.observations}
-        </Text>
-      )}
-      {config.show_images && primaryImage && (
-        <View style={{ marginTop: 6 }}>
-          <Image
-            src={primaryImage}
-            style={{
-              width: PRIMARY_SIZE.width,
-              height: PRIMARY_SIZE.height,
-              objectFit: "cover" as const,
-              borderRadius: 4,
-              border: "1px solid #d1d5db",
-            }}
-          />
-          {secondaryImages.length > 0 && (
-            <View style={styles.imageGrid}>
-              {secondaryImages.map((url, i) => (
+      {contentOrder.map((key) => {
+        switch (key) {
+          case "diagram":
+            return config.show_diagram && diagramUrl ? (
+              <Image
+                key={key}
+                src={diagramUrl}
+                style={{ width: 100, height: 100, marginBottom: 6 }}
+              />
+            ) : null;
+          case "findings":
+            return config.show_findings ? (
+              <View key={key}><ActiveFindings findings={data.findings} /></View>
+            ) : null;
+          case "observations":
+            return config.show_observations && data.observations ? (
+              <Text key={key} style={[styles.findingItem, { marginTop: 4 }]}>
+                Obs: {data.observations}
+              </Text>
+            ) : null;
+          case "images":
+            return config.show_images && primaryImage ? (
+              <View key={key} style={{ marginTop: 6 }}>
                 <Image
-                  key={i}
-                  src={url}
+                  src={primaryImage}
                   style={{
-                    width: secSize.width,
-                    height: secSize.height,
+                    width: PRIMARY_SIZE.width,
+                    height: PRIMARY_SIZE.height,
                     objectFit: "cover" as const,
                     borderRadius: 4,
-                    border: "1px solid #e5e7eb",
+                    border: "1px solid #d1d5db",
                   }}
                 />
-              ))}
-            </View>
-          )}
-        </View>
-      )}
+                {secondaryImages.length > 0 && (
+                  <View style={styles.imageGrid}>
+                    {secondaryImages.map((url, i) => (
+                      <Image
+                        key={i}
+                        src={url}
+                        style={{
+                          width: secSize.width,
+                          height: secSize.height,
+                          objectFit: "cover" as const,
+                          borderRadius: 4,
+                          border: "1px solid #e5e7eb",
+                        }}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : null;
+          default:
+            return null;
+        }
+      })}
     </View>
   );
 }
@@ -261,12 +297,19 @@ export function PdfReport({
 
   const showLogo = config.show_logo && logoUrl;
   const hasCenterInfo = config.center_name || config.center_address || config.center_phone || config.center_email;
+  const sectionOrder = getSectionOrder(config.section_order);
+  const { mainOrder, earContentOrder } = getMainSections(sectionOrder);
+  const hasEarContent = earContentOrder.some((k) =>
+    (k === "diagram" && config.show_diagram) ||
+    (k === "findings" && config.show_findings) ||
+    (k === "observations" && config.show_observations) ||
+    (k === "images" && config.show_images)
+  );
 
-  return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottom: `2px solid ${theme.primary}` }]}>
+  const sectionRenderers: Record<string, () => React.ReactNode> = {
+    header: () =>
+      config.show_header ? (
+        <View key="header" style={[styles.header, { borderBottom: `2px solid ${theme.primary}` }]}>
           {showLogo && (
             <Image src={logoUrl} style={styles.headerLogo} />
           )}
@@ -292,30 +335,30 @@ export function PdfReport({
             <Text style={styles.subtitle}>OtoReport — {date}</Text>
           </View>
         </View>
-
-        {/* Patient info */}
-        {config.show_patient_info && (
-          <View style={styles.section}>
-            <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
-              Datos del Paciente
-            </Text>
-            <View style={styles.row}>
-              <Text style={styles.label}>Nombre:</Text>
-              <Text style={styles.value}>{report.patient.name}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>RUT:</Text>
-              <Text style={styles.value}>{report.patient.rut}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Edad:</Text>
-              <Text style={styles.value}>{report.patient.age} años</Text>
-            </View>
+      ) : null,
+    patient_info: () =>
+      config.show_patient_info ? (
+        <View key="patient_info" style={styles.section}>
+          <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
+            Datos del Paciente
+          </Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Nombre:</Text>
+            <Text style={styles.value}>{report.patient.name}</Text>
           </View>
-        )}
-
-        {/* Exam info */}
-        <View style={styles.section}>
+          <View style={styles.row}>
+            <Text style={styles.label}>RUT:</Text>
+            <Text style={styles.value}>{report.patient.rut}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Edad:</Text>
+            <Text style={styles.value}>{report.patient.age} años</Text>
+          </View>
+        </View>
+      ) : null,
+    exam_info: () =>
+      config.show_exam_info ? (
+        <View key="exam_info" style={styles.section}>
           <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
             Datos del Examen
           </Text>
@@ -328,50 +371,51 @@ export function PdfReport({
             <Text style={styles.value}>{report.equipment}</Text>
           </View>
         </View>
-
-        {/* Ears */}
-        {(config.show_findings || config.show_observations || config.show_images) && (
-          <View style={styles.section}>
-            <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
-              Hallazgos
-            </Text>
-            <View style={styles.earContainer}>
-              <EarSection
-                title="Oído Derecho (OD)"
-                side="right"
-                data={report.right_ear}
-                primaryImage={rightEarPrimary}
-                secondaryImages={rightEarSecondary}
-                diagramUrl={rightDiagramUrl}
-                config={config}
-              />
-              <EarSection
-                title="Oído Izquierdo (OI)"
-                side="left"
-                data={report.left_ear}
-                primaryImage={leftEarPrimary}
-                secondaryImages={leftEarSecondary}
-                diagramUrl={leftDiagramUrl}
-                config={config}
-              />
-            </View>
+      ) : null,
+    "__ear__": () =>
+      hasEarContent ? (
+        <View key="ear_content" style={styles.section}>
+          <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
+            Hallazgos
+          </Text>
+          <View style={styles.earContainer}>
+            <EarSection
+              title="Oído Derecho (OD)"
+              side="right"
+              data={report.right_ear}
+              primaryImage={rightEarPrimary}
+              secondaryImages={rightEarSecondary}
+              diagramUrl={rightDiagramUrl}
+              config={config}
+              contentOrder={earContentOrder}
+            />
+            <EarSection
+              title="Oído Izquierdo (OI)"
+              side="left"
+              data={report.left_ear}
+              primaryImage={leftEarPrimary}
+              secondaryImages={leftEarSecondary}
+              diagramUrl={leftDiagramUrl}
+              config={config}
+              contentOrder={earContentOrder}
+            />
           </View>
-        )}
-
-        {/* Conclusion */}
-        {config.show_conclusion && report.conclusion && (
-          <View style={styles.section}>
-            <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
-              Conclusión
-            </Text>
-            <View style={{ marginTop: 10, padding: 10, backgroundColor: "#f9fafb", borderRadius: 4, borderLeft: `3px solid ${theme.primary}` }}>
-              <Text>{report.conclusion}</Text>
-            </View>
+        </View>
+      ) : null,
+    conclusion: () =>
+      config.show_conclusion && report.conclusion ? (
+        <View key="conclusion" style={styles.section}>
+          <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
+            Conclusión
+          </Text>
+          <View style={{ marginTop: 10, padding: 10, backgroundColor: "#f9fafb", borderRadius: 4, borderLeft: `3px solid ${theme.primary}` }}>
+            <Text>{report.conclusion}</Text>
           </View>
-        )}
-
-        {/* Footer */}
-        <View style={styles.footer} fixed>
+        </View>
+      ) : null,
+    footer: () =>
+      config.show_footer ? (
+        <View key="footer" style={styles.footer} fixed>
           <Text>OtoReport v1.0.0</Text>
           <Text
             render={({ pageNumber, totalPages }) =>
@@ -379,6 +423,13 @@ export function PdfReport({
             }
           />
         </View>
+      ) : null,
+  };
+
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        {mainOrder.map((key) => sectionRenderers[key]?.())}
       </Page>
     </Document>
   );

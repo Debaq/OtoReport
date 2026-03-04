@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
-import { Check, Trash2, Star, Pencil, EraserIcon, ArrowRightLeft } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Check, Trash2, Star, Pencil, EraserIcon, ArrowRightLeft, Crop } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { compositeAnnotations } from "@/lib/annotation-renderer";
 import type { EarImage } from "@/types/image";
 
 interface PhotoGalleryProps {
@@ -27,16 +28,29 @@ export function PhotoGallery({
   onMoveToOtherEar,
 }: PhotoGalleryProps) {
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  // Track a cache key per image to detect when crop/rotation/annotations change
+  const cacheKeysRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     images.forEach(async (img) => {
-      if (!thumbnails[img.id]) {
-        try {
-          const url = await loadImageUrl(img.thumbnail);
-          setThumbnails((prev) => ({ ...prev, [img.id]: url }));
-        } catch {
-          // Thumbnail might not exist yet
+      const key = `${img.rotation}|${img.annotations.length}|${JSON.stringify(img.crop ?? null)}`;
+      if (thumbnails[img.id] && cacheKeysRef.current[img.id] === key) return;
+
+      try {
+        const rawUrl = await loadImageUrl(img.thumbnail);
+        const hasEdits = img.rotation !== 0 || img.annotations.length > 0 || !!img.crop;
+
+        if (hasEdits) {
+          const processed = await compositeAnnotations(rawUrl, img.annotations, img.rotation, null, img.crop);
+          URL.revokeObjectURL(rawUrl);
+          cacheKeysRef.current[img.id] = key;
+          setThumbnails((prev) => ({ ...prev, [img.id]: processed }));
+        } else {
+          cacheKeysRef.current[img.id] = key;
+          setThumbnails((prev) => ({ ...prev, [img.id]: rawUrl }));
         }
+      } catch {
+        // Thumbnail might not exist yet
       }
     });
   }, [images, loadImageUrl]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -67,7 +81,6 @@ export function PhotoGallery({
                 src={thumbnails[img.id]}
                 alt=""
                 className="h-full w-full object-cover"
-                style={{ transform: `rotate(${img.rotation}deg)` }}
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
@@ -90,6 +103,11 @@ export function PhotoGallery({
               <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 rounded bg-black/50 px-1 py-0.5 text-[8px] text-white">
                 <Pencil size={7} />
                 {img.annotations.length}
+              </div>
+            )}
+            {img.crop && (
+              <div className="absolute right-1.5 bottom-1.5 flex items-center rounded bg-black/50 p-0.5 text-white">
+                <Crop size={9} />
               </div>
             )}
           </div>

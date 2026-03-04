@@ -46,6 +46,7 @@ pub struct EarImageData {
     pub rotation: i32,
     pub notes: String,
     pub annotations: serde_json::Value,
+    pub crop: Option<serde_json::Value>,
 }
 
 impl Default for EarImageData {
@@ -61,6 +62,7 @@ impl Default for EarImageData {
             rotation: 0,
             notes: String::new(),
             annotations: serde_json::Value::Array(vec![]),
+            crop: None,
         }
     }
 }

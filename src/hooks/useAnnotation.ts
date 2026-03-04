@@ -13,11 +13,11 @@ export function useAnnotation({ annotations, onChange }: UseAnnotationProps) {
   const [activeSize, setActiveSize] = useState(20);
   const [rotation, setRotation] = useState(0);
   const [pivot, setPivot] = useState<{ x: number; y: number } | null>(null);
-  const [pivotMode, setPivotMode] = useState(false);
+
 
   const addAnnotation = useCallback(
     (x: number, y: number, text?: string) => {
-      if (!activeTool || activeTool === "eraser" || activeTool === "crop-rect" || activeTool === "crop-circle") return;
+      if (!activeTool || activeTool === "eraser" || activeTool === "crop-rect" || activeTool === "crop-circle" || activeTool === "rotate") return;
       const annotation: Annotation = {
         id: uuidv4(),
         type: activeTool,
@@ -85,7 +85,5 @@ export function useAnnotation({ annotations, onChange }: UseAnnotationProps) {
     clearAnnotations,
     pivot,
     setPivot,
-    pivotMode,
-    setPivotMode,
   };
 }

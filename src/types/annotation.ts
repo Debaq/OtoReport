@@ -6,7 +6,7 @@ export enum AnnotationType {
   Dot = "dot",
 }
 
-export type EditorTool = AnnotationType | "eraser" | "crop-rect" | "crop-circle";
+export type EditorTool = AnnotationType | "eraser" | "crop-rect" | "crop-circle" | "rotate";
 
 export interface Annotation {
   id: string;
@@ -17,4 +17,11 @@ export interface Annotation {
   size: number;
   rotation: number;
   text?: string;
+}
+
+export interface CropData {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  type: "crop-rect" | "crop-circle";
+  background?: "black" | "white" | "transparent";
 }

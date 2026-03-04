@@ -1,4 +1,4 @@
-import type { Annotation } from "./annotation";
+import type { Annotation, CropData } from "./annotation";
 
 export type EarSide = "left" | "right";
 
@@ -13,4 +13,5 @@ export interface EarImage {
   rotation: number;
   notes: string;
   annotations: Annotation[];
+  crop?: CropData | null;
 }

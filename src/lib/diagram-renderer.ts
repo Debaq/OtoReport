@@ -6,7 +6,8 @@ import type { EarSide } from "@/types/image";
 
 export async function renderDiagramToImage(
   side: EarSide,
-  marks: EarMarks
+  marks: EarMarks,
+  retries = 2
 ): Promise<string> {
   const svgMarkup = renderToStaticMarkup(
     createElement(TympanicDiagram, {
@@ -29,7 +30,15 @@ export async function renderDiagramToImage(
   const width = 400;
   const height = Math.round(width * (vbH / vbW));
 
-  return svgToPng(svgString, width, height);
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await svgToPng(svgString, width, height);
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  throw new Error("Unreachable");
 }
 
 function svgToPng(
@@ -43,7 +52,12 @@ function svgToPng(
     });
     const url = URL.createObjectURL(blob);
     const img = new window.Image();
+    const timeout = setTimeout(() => {
+      URL.revokeObjectURL(url);
+      reject(new Error("SVG to PNG conversion timed out"));
+    }, 5000);
     img.onload = () => {
+      clearTimeout(timeout);
       const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;
@@ -53,6 +67,7 @@ function svgToPng(
       resolve(canvas.toDataURL("image/png"));
     };
     img.onerror = (e) => {
+      clearTimeout(timeout);
       URL.revokeObjectURL(url);
       reject(e);
     };

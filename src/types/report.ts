@@ -39,17 +39,21 @@ export interface WorkspaceConfig {
   equipment: string;
   // Preferencias del informe
   report_title: string;
+  show_header: boolean;
   show_logo: boolean;
   show_patient_info: boolean;
+  show_exam_info: boolean;
   show_diagram: boolean;
   show_annotations: boolean;
   show_findings: boolean;
   show_observations: boolean;
   show_images: boolean;
   show_conclusion: boolean;
+  show_footer: boolean;
   image_size: "small" | "medium" | "large";
   images_per_row: number;
   theme_color: string;
+  section_order: string[];
 }
 
 export interface SessionInfo {

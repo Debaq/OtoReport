@@ -9,6 +9,7 @@ import { PdfReport } from "@/components/export/PdfReport";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { renderDiagramToImage } from "@/lib/diagram-renderer";
 import { compositeAnnotations } from "@/lib/annotation-renderer";
+import { blobUrlToDataUrl } from "@/lib/image-utils";
 import type { Report, WorkspaceConfig } from "@/types";
 
 const defaultConfig: WorkspaceConfig = {
@@ -21,17 +22,21 @@ const defaultConfig: WorkspaceConfig = {
   examiner: "",
   equipment: "",
   report_title: "Informe de Otoscopía",
+  show_header: true,
   show_logo: true,
   show_patient_info: true,
+  show_exam_info: true,
   show_diagram: true,
   show_annotations: true,
   show_findings: true,
   show_observations: true,
   show_images: true,
   show_conclusion: true,
+  show_footer: true,
   image_size: "medium",
   images_per_row: 3,
   theme_color: "blue",
+  section_order: [],
 };
 
 interface ReportPreviewProps {
@@ -69,7 +74,10 @@ export function ReportPreview({
         try {
           const bytes: number[] = await invoke("load_logo", { path: resolvedConfig.logo_path });
           const blob = new Blob([new Uint8Array(bytes)]);
-          setLogoUrl(URL.createObjectURL(blob));
+          const reader = new FileReader();
+          reader.onloadend = () => setLogoUrl(reader.result as string);
+          reader.onerror = () => setLogoUrl(null);
+          reader.readAsDataURL(blob);
         } catch {
           setLogoUrl(null);
         }
@@ -96,25 +104,40 @@ export function ReportPreview({
     })();
   }, [report.right_ear.marks, report.left_ear.marks]);
 
-  async function loadProcessedUrl(img: typeof report.right_ear.images[0], side: string): Promise<string> {
-    const rawUrl = await loadImageUrl(
-      report.patient_id,
-      report.session_id,
-      side,
-      img.filename
-    );
-    const hasAnnotations = resolvedConfig.show_annotations && img.annotations.length > 0;
-    const hasRotation = img.rotation !== 0;
-    if (hasAnnotations || hasRotation) {
-      const composited = await compositeAnnotations(
-        rawUrl,
-        hasAnnotations ? img.annotations : [],
-        img.rotation
-      );
-      URL.revokeObjectURL(rawUrl);
-      return composited;
+  async function loadProcessedUrl(img: typeof report.right_ear.images[0], side: string, retries = 2): Promise<string> {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const rawUrl = await loadImageUrl(
+          report.patient_id,
+          report.session_id,
+          side,
+          img.filename
+        );
+        const hasAnnotations = resolvedConfig.show_annotations && img.annotations.length > 0;
+        const hasRotation = img.rotation !== 0;
+        const hasCrop = !!img.crop;
+        if (hasAnnotations || hasRotation || hasCrop) {
+          const composited = await compositeAnnotations(
+            rawUrl,
+            hasAnnotations ? img.annotations : [],
+            img.rotation,
+            null,
+            img.crop
+          );
+          URL.revokeObjectURL(rawUrl);
+          return composited; // ya es data URL (canvas.toDataURL)
+        }
+        // Convertir blob URL a data URL para que @react-pdf/renderer lo cargue correctamente
+        const dataUrl = await blobUrlToDataUrl(rawUrl);
+        URL.revokeObjectURL(rawUrl);
+        return dataUrl;
+      } catch (err) {
+        console.warn(`Error cargando imagen ${img.filename} (intento ${attempt + 1}):`, err);
+        if (attempt === retries) throw err;
+        await new Promise((r) => setTimeout(r, 200));
+      }
     }
-    return rawUrl;
+    throw new Error("Unreachable");
   }
 
   async function getEarImages(side: "right" | "left"): Promise<{ primary: string | null; secondary: string[] }> {
@@ -130,12 +153,16 @@ export function ReportPreview({
 
     try {
       primaryUrl = await loadProcessedUrl(primaryImg, side);
-    } catch { /* skip */ }
+    } catch (err) {
+      console.error(`Error cargando imagen principal (${side}):`, err);
+    }
 
     for (const img of secondaryImgs) {
       try {
         secondaryUrls.push(await loadProcessedUrl(img, side));
-      } catch { /* skip */ }
+      } catch (err) {
+        console.error(`Error cargando imagen secundaria ${img.filename} (${side}):`, err);
+      }
     }
 
     return { primary: primaryUrl, secondary: secondaryUrls };
@@ -163,11 +190,15 @@ export function ReportPreview({
     if (!diagramsReady) return;
 
     let cancelled = false;
+    setGenerating(true);
     const timer = setTimeout(async () => {
       try {
         const blob = await generatePdf();
         if (!cancelled) {
-          setPreviewUrl(URL.createObjectURL(blob));
+          setPreviewUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return URL.createObjectURL(blob);
+          });
         }
       } catch (err) {
         console.error("Error generating preview:", err);
@@ -179,7 +210,7 @@ export function ReportPreview({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [logoUrl, diagramsReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [logoUrl, diagramsReady, rightDiagramUrl, leftDiagramUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleExport() {
     setExporting(true);

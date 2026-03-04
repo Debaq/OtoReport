@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { compositeAnnotations } from "@/lib/annotation-renderer";
+import type { CropData } from "@/types/annotation";
 
 interface PhotoPreviewProps {
   loadImage: () => Promise<string>;
   rotation: number;
+  crop?: CropData | null;
   onClose: () => void;
   onAnnotate?: () => void;
 }
@@ -12,14 +15,26 @@ interface PhotoPreviewProps {
 export function PhotoPreview({
   loadImage,
   rotation,
+  crop,
   onClose,
 }: PhotoPreviewProps) {
   const [url, setUrl] = useState("");
 
   useEffect(() => {
-    loadImage().then(setUrl);
+    let cancelled = false;
+    loadImage().then(async (rawUrl) => {
+      if (cancelled) return;
+      if (crop || rotation !== 0) {
+        const processed = await compositeAnnotations(rawUrl, [], rotation, null, crop);
+        URL.revokeObjectURL(rawUrl);
+        if (!cancelled) setUrl(processed);
+      } else {
+        if (!cancelled) setUrl(rawUrl);
+      }
+    });
     return () => {
-      if (url) URL.revokeObjectURL(url);
+      cancelled = true;
+      if (url && !url.startsWith("data:")) URL.revokeObjectURL(url);
     };
   }, [loadImage]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -34,13 +49,16 @@ export function PhotoPreview({
         >
           <X size={20} />
         </Button>
-        {url && (
+        {url ? (
           <img
             src={url}
             alt="Preview"
             className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain"
-            style={{ transform: `rotate(${rotation}deg)` }}
           />
+        ) : (
+          <div className="flex h-32 w-32 items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-3 border-white border-t-transparent" />
+          </div>
         )}
       </div>
     </div>

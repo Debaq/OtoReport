@@ -18,17 +18,21 @@ pub struct WorkspaceConfig {
     pub equipment: String,
     // Preferencias del informe
     pub report_title: String,
+    pub show_header: bool,
     pub show_logo: bool,
     pub show_patient_info: bool,
+    pub show_exam_info: bool,
     pub show_diagram: bool,
     pub show_annotations: bool,
     pub show_findings: bool,
     pub show_observations: bool,
     pub show_images: bool,
     pub show_conclusion: bool,
+    pub show_footer: bool,
     pub image_size: String,
     pub images_per_row: u32,
     pub theme_color: String,
+    pub section_order: Vec<String>,
 }
 
 impl Default for WorkspaceConfig {
@@ -43,17 +47,26 @@ impl Default for WorkspaceConfig {
             examiner: String::new(),
             equipment: String::new(),
             report_title: "Informe de Otoscopía".to_string(),
+            show_header: true,
             show_logo: true,
             show_patient_info: true,
+            show_exam_info: true,
             show_diagram: true,
             show_annotations: true,
             show_findings: true,
             show_observations: true,
             show_images: true,
             show_conclusion: true,
+            show_footer: true,
             image_size: "medium".to_string(),
             images_per_row: 3,
             theme_color: "blue".to_string(),
+            section_order: vec![
+                "patient_info".to_string(),
+                "exam_info".to_string(),
+                "findings".to_string(),
+                "conclusion".to_string(),
+            ],
         }
     }
 }

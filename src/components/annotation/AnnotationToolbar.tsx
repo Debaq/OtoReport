@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { AnnotationType } from "@/types/annotation";
 import type { EditorTool } from "@/types/annotation";
-import { ArrowUp, Type, Circle, X, Crosshair, Eraser, Square, CircleDashed } from "lucide-react";
+import { ArrowUp, Type, Circle, X, Crosshair, Eraser, Square, CircleDashed, Undo2, RotateCw } from "lucide-react";
 
 interface AnnotationToolbarProps {
   activeTool: EditorTool | null;
@@ -9,6 +9,8 @@ interface AnnotationToolbarProps {
   onSelectTool: (tool: EditorTool | null) => void;
   onSelectColor: (color: string) => void;
   onClear: () => void;
+  onUndo?: () => void;
+  canUndo?: boolean;
 }
 
 const tools: { type: EditorTool; icon: typeof ArrowUp; label: string }[] = [
@@ -20,6 +22,7 @@ const tools: { type: EditorTool; icon: typeof ArrowUp; label: string }[] = [
   { type: "eraser", icon: Eraser, label: "Borrador" },
   { type: "crop-rect", icon: Square, label: "Recorte rectangular" },
   { type: "crop-circle", icon: CircleDashed, label: "Recorte circular" },
+  { type: "rotate", icon: RotateCw, label: "Rotar" },
 ];
 
 const colors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ffffff", "#000000"];
@@ -30,6 +33,8 @@ export function AnnotationToolbar({
   onSelectTool,
   onSelectColor,
   onClear,
+  onUndo,
+  canUndo,
 }: AnnotationToolbarProps) {
   return (
     <div className="flex items-center gap-3">
@@ -68,6 +73,22 @@ export function AnnotationToolbar({
       </div>
 
       <div className="h-6 w-px bg-gray-200" />
+
+      {onUndo && (
+        <button
+          onClick={onUndo}
+          disabled={!canUndo}
+          className={cn(
+            "rounded p-1.5 transition-colors",
+            canUndo
+              ? "text-gray-500 hover:bg-gray-100"
+              : "text-gray-300 cursor-not-allowed"
+          )}
+          title="Deshacer"
+        >
+          <Undo2 size={16} />
+        </button>
+      )}
 
       <button
         onClick={onClear}
