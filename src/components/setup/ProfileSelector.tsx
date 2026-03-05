@@ -72,6 +72,9 @@ export function ProfileSelector() {
             <Settings size={16} />
             {t("profileSelector.manage")}
           </button>
+          <p className="mt-2 text-xs text-text-tertiary/60">
+            {t("profileSelector.avatarHint")}
+          </p>
         </div>
 
         {showAdd && (
@@ -256,6 +259,14 @@ function ManageProfiles({ onClose }: { onClose: () => void }) {
 
               {editingId === profile.id && (
                 <div className="mt-3 border-t border-border-secondary pt-3">
+                  <div className="mb-2 flex items-center justify-center">
+                    <SpriteAvatar
+                      avatar={editAvatar}
+                      name={editName.trim() || "?"}
+                      color={editColor}
+                      size={64}
+                    />
+                  </div>
                   <AvatarPicker selected={editAvatar} onSelect={setEditAvatar} />
                 </div>
               )}

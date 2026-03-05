@@ -34,3 +34,10 @@ export async function setActiveProfile(profileId: string): Promise<void> {
 export async function getActiveProfileId(): Promise<string> {
   return invoke<string>("get_active_profile_id");
 }
+
+export async function saveDefaultLogo(): Promise<string> {
+  const res = await fetch("/tecmedhub.jpeg");
+  const buffer = await res.arrayBuffer();
+  const bytes = Array.from(new Uint8Array(buffer));
+  return invoke<string>("save_logo", { data: bytes, extension: "jpeg" });
+}

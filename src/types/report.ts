@@ -1,6 +1,7 @@
 import type { EarFindings, EarMarks } from "./findings";
 import type { EarImage } from "./image";
 import type { Patient } from "./patient";
+import i18n from "@/i18n/config";
 
 export interface EarData {
   findings: EarFindings;
@@ -117,30 +118,56 @@ export interface FindingsCategoryConfig {
   checks: FindingCheckConfig[];
 }
 
-export const DEFAULT_FINDINGS_CATEGORIES: FindingsCategoryConfig[] = [
-  {
-    id: "membrane",
-    name: "Membrana Timpánica",
-    checks: [
-      { key: "normal", label: "Normal", enabled: true, description: "Membrana timpánica de aspecto normal, translúcida, con cono luminoso presente" },
-      { key: "retraction", label: "Retracción", enabled: true, description: "Retracción de la membrana timpánica" },
-      { key: "perforation", label: "Perforación", enabled: true, description: "Perforación de la membrana timpánica" },
-      { key: "effusion", label: "Efusión", enabled: true, description: "Presencia de líquido en oído medio" },
-      { key: "inflammation", label: "Inflamación", enabled: true, description: "Membrana timpánica eritematosa e inflamada" },
-    ],
-  },
-  {
-    id: "cae",
-    name: "Conducto Auditivo Externo",
-    checks: [
-      { key: "cae_normal", label: "Normal", enabled: true, description: "Conducto auditivo externo de aspecto normal, permeable" },
-      { key: "cae_cerumen", label: "Cerumen", enabled: true, description: "Presencia de cerumen en el conducto auditivo" },
-      { key: "cae_edema", label: "Edema", enabled: true, description: "Edema de la piel del conducto auditivo" },
-      { key: "cae_otorrhea", label: "Otorrea", enabled: true, description: "Secreción en el conducto auditivo" },
-      { key: "cae_exostosis", label: "Exostosis", enabled: true, description: "Crecimientos óseos múltiples bilaterales (oído de surfista)" },
-    ],
-  },
-];
+export function getDefaultFindingsCategories(): FindingsCategoryConfig[] {
+  const tf = (key: string) => i18n.t(key, { ns: 'findings' });
+  return [
+    {
+      id: "membrane",
+      name: tf("categories.membrane"),
+      checks: [
+        { key: "normal", label: tf("findings.normal.label"), enabled: true, description: tf("findings.normal.description") },
+        { key: "retraction", label: tf("findings.retraction.label"), enabled: true, description: tf("findings.retraction.description") },
+        { key: "perforation", label: tf("findings.perforation.label"), enabled: true, description: tf("findings.perforation.description") },
+        { key: "effusion", label: tf("findings.effusion.label"), enabled: true, description: tf("findings.effusion.description") },
+        { key: "inflammation", label: tf("findings.inflammation.label"), enabled: true, description: tf("findings.inflammation.description") },
+      ],
+    },
+    {
+      id: "cae",
+      name: tf("categories.cae"),
+      checks: [
+        { key: "cae_normal", label: tf("findings.cae_normal.label"), enabled: true, description: tf("findings.cae_normal.description") },
+        { key: "cae_cerumen", label: tf("findings.cae_cerumen.label"), enabled: true, description: tf("findings.cae_cerumen.description") },
+        { key: "cae_edema", label: tf("findings.cae_edema.label"), enabled: true, description: tf("findings.cae_edema.description") },
+        { key: "cae_otorrhea", label: tf("findings.cae_otorrhea.label"), enabled: true, description: tf("findings.cae_otorrhea.description") },
+        { key: "cae_exostosis", label: tf("findings.cae_exostosis.label"), enabled: true, description: tf("findings.cae_exostosis.description") },
+      ],
+    },
+  ];
+}
+
+/** Re-translate findings categories using current i18n language.
+ *  Known keys get their label/description from i18n; custom ones stay as-is. */
+export function translateFindingsCategories(categories: FindingsCategoryConfig[]): FindingsCategoryConfig[] {
+  const KNOWN_CATEGORY_IDS = ["membrane", "cae"];
+  return categories.map((cat) => {
+    const catName = KNOWN_CATEGORY_IDS.includes(cat.id)
+      ? i18n.t(`categories.${cat.id}`, { ns: 'findings', defaultValue: cat.name })
+      : cat.name;
+    return {
+      ...cat,
+      name: catName,
+      checks: cat.checks.map((ch) => {
+        const translatedLabel = i18n.t(`findings.${ch.key}.label`, { ns: 'findings', defaultValue: '' });
+        if (translatedLabel) {
+          const translatedDesc = i18n.t(`findings.${ch.key}.description`, { ns: 'findings', defaultValue: ch.description || '' });
+          return { ...ch, label: translatedLabel, description: translatedDesc };
+        }
+        return ch;
+      }),
+    };
+  });
+}
 
 export interface SessionInfo {
   id: string;

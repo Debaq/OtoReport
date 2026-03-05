@@ -5,6 +5,7 @@ use zip::ZipWriter;
 #[tauri::command]
 pub fn create_contribution_zip(
     image_data: Vec<u8>,
+    image_filename: String,
     annotations_json: String,
     metadata_json: String,
     save_path: String,
@@ -14,7 +15,7 @@ pub fn create_contribution_zip(
     let options = SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
 
-    zip.start_file("image_original.png", options)
+    zip.start_file(&image_filename, options)
         .map_err(|e| e.to_string())?;
     zip.write_all(&image_data).map_err(|e| e.to_string())?;
 

@@ -78,22 +78,31 @@ export function ReportPreview({
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (resolvedConfig.logo_path && resolvedConfig.show_logo) {
-      (async () => {
-        try {
-          const bytes: number[] = await invoke("load_logo", { path: resolvedConfig.logo_path });
-          const blob = new Blob([new Uint8Array(bytes)]);
-          const reader = new FileReader();
-          reader.onloadend = () => setLogoUrl(reader.result as string);
-          reader.onerror = () => setLogoUrl(null);
-          reader.readAsDataURL(blob);
-        } catch {
-          setLogoUrl(null);
-        }
-      })();
-    } else {
+    if (!resolvedConfig.show_logo) {
       setLogoUrl(null);
+      return;
     }
+    (async () => {
+      try {
+        let blob: Blob;
+        if (resolvedConfig.logo_path) {
+          const bytes: number[] = await invoke("load_logo", { path: resolvedConfig.logo_path });
+          const ext = resolvedConfig.logo_path.split(".").pop()?.toLowerCase() || "png";
+          const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+          blob = new Blob([new Uint8Array(bytes)], { type: mime });
+        } else {
+          // Fallback: logo por defecto
+          const res = await fetch("/tecmedhub.jpeg");
+          blob = await res.blob();
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => setLogoUrl(reader.result as string);
+        reader.onerror = () => setLogoUrl(null);
+        reader.readAsDataURL(blob);
+      } catch {
+        setLogoUrl(null);
+      }
+    })();
   }, [resolvedConfig.logo_path, resolvedConfig.show_logo]);
 
   useEffect(() => {

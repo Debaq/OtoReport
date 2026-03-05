@@ -13,6 +13,15 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatRut, cleanRut, validateRut, calculateAge } from "@/lib/utils";
+
+/** Si parece RUT chileno (solo dígitos y K), intenta formatearlo */
+function tryFormatId(value: string): string {
+  const clean = cleanRut(value);
+  if (clean === value.replace(/[\s.-]/g, "").toUpperCase() && validateRut(clean)) {
+    return formatRut(clean);
+  }
+  return value.trim();
+}
 import { CheckCircle, Stethoscope, Droplets } from "lucide-react";
 import type { Patient, ReportType } from "@/types";
 
@@ -35,7 +44,7 @@ export function NewReport() {
   const [patientBirthDate, setPatientBirthDate] = useState("");
   const [patientPhone, setPatientPhone] = useState("");
   const [patientEmail, setPatientEmail] = useState("");
-  const [rutValid, setRutValid] = useState(false);
+  const [isChileanRut, setIsChileanRut] = useState(false);
   const [reportType, setReportType] = useState<ReportType>("otoscopy");
   const [initializing, setInitializing] = useState(true);
 
@@ -80,28 +89,28 @@ export function NewReport() {
     setPatientBirthDate(p.birth_date);
     setPatientPhone(p.phone);
     setPatientEmail(p.email);
-    setRutValid(true);
+    setIsChileanRut(true);
     setShowSuggestions(false);
   }
 
   // Filtrar pacientes por lo que se va escribiendo
-  const rutClean = cleanRut(rutInput).toLowerCase();
+  const searchTerm = rutInput.trim().toLowerCase();
   const suggestions =
-    rutClean.length >= 2
+    searchTerm.length >= 2
       ? allPatients.filter((p) => {
-          const pRut = cleanRut(p.rut).toLowerCase();
-          return pRut.startsWith(rutClean) || pRut.includes(rutClean);
+          const pRut = p.rut.toLowerCase();
+          const pRutClean = cleanRut(p.rut).toLowerCase();
+          return pRut.includes(searchTerm) || pRutClean.includes(searchTerm.replace(/[^0-9kK]/gi, ""));
         })
       : [];
 
   function handleRutChange(value: string) {
-    const clean = cleanRut(value);
-    setRutInput(clean);
-    setRutValid(validateRut(clean));
+    setRutInput(value);
+    setIsChileanRut(validateRut(cleanRut(value)));
     setShowSuggestions(true);
 
-    // Si ya tenían un paciente seleccionado y cambiaron el RUT, desvincularlo
-    if (foundPatient && cleanRut(foundPatient.rut) !== clean) {
+    // Si ya tenían un paciente seleccionado y cambiaron el ID, desvincularlo
+    if (foundPatient && foundPatient.rut !== value.trim() && cleanRut(foundPatient.rut) !== cleanRut(value)) {
       setFoundPatient(null);
       setPatientName("");
       setPatientBirthDate("");
@@ -111,7 +120,7 @@ export function NewReport() {
   }
 
   async function handleStartReport() {
-    if (!rutValid || !patientName.trim()) return;
+    if (!rutInput.trim() || !patientName.trim()) return;
 
     const now = new Date().toISOString();
     const patient: Patient = foundPatient
@@ -126,7 +135,7 @@ export function NewReport() {
         }
       : {
           id: uuidv4(),
-          rut: formatRut(rutInput),
+          rut: tryFormatId(rutInput),
           name: patientName,
           birth_date: patientBirthDate,
           age: patientBirthDate ? calculateAge(patientBirthDate) : 0,
@@ -190,14 +199,11 @@ export function NewReport() {
                 <Input
                   label={t("patients.rut")}
                   id="rut"
-                  value={formatRut(rutInput)}
+                  value={isChileanRut ? formatRut(rutInput) : rutInput}
                   onChange={(e) => handleRutChange(e.target.value)}
-                  onFocus={() => rutClean.length >= 2 && setShowSuggestions(true)}
+                  onFocus={() => searchTerm.length >= 2 && setShowSuggestions(true)}
                   placeholder="12.345.678-5"
                   autoComplete="off"
-                  error={
-                    rutInput.length > 0 && !rutValid ? t("patients.form.rutInvalid") : undefined
-                  }
                 />
 
                 {/* Dropdown sugerencias */}
@@ -306,7 +312,7 @@ export function NewReport() {
 
           <Button
             onClick={handleStartReport}
-            disabled={!rutValid || !patientName.trim()}
+            disabled={!rutInput.trim() || !patientName.trim()}
             className="w-full py-3"
           >
             {t("report.startReport")}

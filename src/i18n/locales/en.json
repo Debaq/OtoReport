@@ -8,7 +8,9 @@
     "name": "Name",
     "color": "Color",
     "create": "Create profile",
-    "done": "Done"
+    "done": "Done",
+    "avatarHint": "You can customize your avatar in Manage profiles",
+    "chooseAvatar": "Choose your avatar (optional)"
   },
   "setup": {
     "welcome": "Welcome to OtoReport",
@@ -110,6 +112,10 @@
       "observations": "Observations",
       "conclusion": "Conclusion",
       "page": "Page {{current}} of {{total}}"
+    },
+    "mock": {
+      "observationOD": "No findings",
+      "observationOI": "Mild inflammation"
     }
   },
   "settings": {
@@ -119,7 +125,8 @@
       "report": "Report",
       "findings": "Findings",
       "profiles": "Profiles",
-      "about": "About"
+      "about": "About",
+      "contribute": "Contribute"
     },
     "appearance": {
       "title": "Appearance",
@@ -223,7 +230,28 @@
       "equipmentLoading": "Loading recommended equipment...",
       "equipmentOffline": "Could not load equipment list",
       "equipmentRetry": "Retry",
-      "equipmentShareExperience": "Do you use a video otoscope not listed here? Share your experience on Instagram:"
+      "equipmentShareExperience": "Do you use a video otoscope not listed here? Share your experience on Instagram:",
+      "labTitle": "The hidden lab",
+      "labOrigin": "OtoReport was born because TM Carlos Moreira from Hospital de Angol asked us for it. That's how TecMedHub works: anyone can bring us a need, and if we can, we turn it into a tool and share it with the whole community.",
+      "labLocation": "We are a hidden lab in Building 500 at the Puerto Montt campus of Universidad Austral de Chile — a corner where medical technology and vocation mix with a lot of coffee.",
+      "labCoffee": "If you ever pass by, the door is open and so is the coffee.",
+      "labMapButton": "Where are we?"
+    },
+    "contribute": {
+      "kofiTitle": "Support the project",
+      "kofiDescription": "OtoReport is a project with no external funding. We build it with passion, dedication, and the belief that open medical technology can improve hearing care. Every contribution, no matter how small, helps us grow and fills us with joy.",
+      "kofiCoffee": "If it's a coffee... in any lab, coffee is the fuel of the heart and hands. Thank you for being here!",
+      "kofiButton": "Buy us a coffee on Ko-fi",
+      "githubTitle": "Contribute on GitHub",
+      "equipmentBuy": "Where to buy?",
+      "equipmentViewImage": "View full image",
+      "equipmentSubmitTitle": "Want to add your otoscope?",
+      "equipmentField1": "Device name (exact brand and model)",
+      "equipmentField2": "A brief description of your clinical experience with it",
+      "equipmentField3": "Approximate price or range (optional, helps the community)",
+      "equipmentField4": "Official product link (store or manufacturer)",
+      "equipmentField5": "A photo or representative image of the device (optional)",
+      "equipmentField6": "Your name or institution if you'd like to be credited"
     },
     "save": "Save Settings",
     "saved": "Saved"
@@ -231,7 +259,7 @@
   "patients": {
     "title": "Patients",
     "name": "Name",
-    "rut": "ID/RUT",
+    "rut": "ID / RUT / DNI",
     "age": "Age",
     "ageYears": "years",
     "phone": "Phone",
@@ -254,7 +282,7 @@
     "form": {
       "nameLabel": "Full name",
       "nameRequired": "Name required",
-      "rutInvalid": "Invalid ID/RUT",
+      "rutInvalid": "ID required",
       "birthDateRequired": "Date required",
       "emailInvalid": "Invalid email",
       "update": "Update Patient",
@@ -354,5 +382,17 @@
     "search": "Search",
     "noResults": "No results found",
     "noFindings": "No findings"
+  },
+  "update": {
+    "available": "Update available",
+    "currentVersion": "Current version",
+    "newVersion": "New version",
+    "releaseNotes": "Release notes",
+    "download": "Download",
+    "dismiss": "Remind me later",
+    "checking": "Checking for updates...",
+    "upToDate": "You're up to date",
+    "checkError": "Could not check for updates",
+    "checkNow": "Check for updates"
   }
 }

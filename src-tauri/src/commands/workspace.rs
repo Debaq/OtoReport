@@ -47,6 +47,7 @@ pub struct UserProfile {
     pub id: String,
     pub name: String,
     pub color: String,
+    pub avatar: Option<u32>,
     // Centro de salud
     pub center_name: String,
     pub center_address: String,
@@ -84,6 +85,7 @@ impl Default for UserProfile {
             id: String::new(),
             name: String::new(),
             color: "#3B82F6".to_string(),
+            avatar: None,
             center_name: String::new(),
             center_address: String::new(),
             center_phone: String::new(),
@@ -336,6 +338,7 @@ fn migrate_legacy_config(_app: &tauri::AppHandle, config_path: &PathBuf, content
         id: profile_id.clone(),
         name: profile_name.clone(),
         color: "#3B82F6".to_string(),
+        avatar: None,
         center_name: legacy.center_name,
         center_address: legacy.center_address,
         center_phone: legacy.center_phone,

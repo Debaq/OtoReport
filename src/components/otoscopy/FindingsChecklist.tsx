@@ -1,6 +1,6 @@
 import { Checkbox } from "@/components/ui/Checkbox";
 import type { EarFindings, FindingsCategoryConfig } from "@/types";
-import { DEFAULT_FINDINGS_CATEGORIES } from "@/types";
+import { getDefaultFindingsCategories, translateFindingsCategories } from "@/types";
 
 interface FindingsChecklistProps {
   findings: EarFindings;
@@ -9,9 +9,11 @@ interface FindingsChecklistProps {
 }
 
 export function FindingsChecklist({ findings, onChange, categoriesConfig }: FindingsChecklistProps) {
-  const categories = categoriesConfig && categoriesConfig.length > 0
-    ? categoriesConfig
-    : DEFAULT_FINDINGS_CATEGORIES;
+  const categories = translateFindingsCategories(
+    categoriesConfig && categoriesConfig.length > 0
+      ? categoriesConfig
+      : getDefaultFindingsCategories()
+  );
 
   const membraneCategory = categories.find((c) => c.id === "membrane");
   const caeCategory = categories.find((c) => c.id === "cae");

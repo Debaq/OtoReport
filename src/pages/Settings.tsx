@@ -10,13 +10,15 @@ import { Select } from "@/components/ui/Select";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 import { isAndroid } from "@/lib/platform";
-import { FolderOpen, Save, ImageIcon, X, ZoomIn, ChevronUp, ChevronDown, GripVertical, RotateCcw, Settings2, FileText, Stethoscope, Sun, Moon, Palette, Plus, Trash2, Search, Users, LogOut, Sparkles, Wine, Info, ExternalLink, Github, BookOpen, Loader2, WifiOff, Camera, ShoppingCart, RefreshCw, ImageOff, MessageCircle } from "lucide-react";
+import { FolderOpen, Save, ImageIcon, X, ZoomIn, ChevronUp, ChevronDown, GripVertical, RotateCcw, Settings2, FileText, Stethoscope, Sun, Moon, Palette, Plus, Trash2, Search, Users, LogOut, Sparkles, Wine, Info, ExternalLink, Github, BookOpen, Loader2, WifiOff, Camera, ShoppingCart, RefreshCw, ImageOff, MessageCircle, Heart, Coffee, MapPin } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useUpdateChecker, APP_VERSION } from "@/hooks/useUpdateChecker";
 import type { WorkspaceConfig, FindingsCategoryConfig, FindingCheckConfig, UserProfile } from "@/types";
 import { PROFILE_COLORS } from "@/types/report";
 import { SpriteAvatar, AvatarPicker } from "@/components/ui/SpriteAvatar";
 import { SpriteEditor } from "@/components/settings/SpriteEditor";
-import { DEFAULT_FINDINGS_CATEGORIES } from "@/types";
+import { getDefaultFindingsCategories, translateFindingsCategories } from "@/types";
+import i18n from "@/i18n/config";
 import { FindingsSearchModal } from "@/components/settings/FindingsSearchModal";
 import type { LibraryFinding } from "@/lib/findings-library";
 
@@ -95,62 +97,94 @@ interface Equipment {
 }
 
 function EquipmentCard({ item, lang }: { item: Equipment; lang: string }) {
+  const { t } = useTranslation();
   const [imgStatus, setImgStatus] = useState<"loading" | "loaded" | "error">("loading");
+  const [lightbox, setLightbox] = useState(false);
   const comment = lang.startsWith("es") ? item.comments.es : item.comments.en;
 
   return (
-    <div className="flex gap-4 rounded-lg border border-border-secondary bg-bg-primary p-4">
-      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-bg-tertiary">
-        {item.image ? (
-          <>
-            {imgStatus === "loading" && (
-              <div className="flex h-full w-full items-center justify-center">
-                <Loader2 size={20} className="animate-spin text-text-tertiary" />
-              </div>
+    <>
+      <div className="flex gap-4 rounded-lg border border-border-secondary bg-bg-primary p-4">
+        <button
+          className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-bg-tertiary focus:outline-none"
+          onClick={() => item.image && imgStatus === "loaded" && setLightbox(true)}
+          title={imgStatus === "loaded" ? t("settings.contribute.equipmentViewImage") : undefined}
+        >
+          {item.image ? (
+            <>
+              {imgStatus === "loading" && (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Loader2 size={20} className="animate-spin text-text-tertiary" />
+                </div>
+              )}
+              <img
+                src={item.image}
+                alt={item.name}
+                className={`h-full w-full object-cover transition-opacity ${imgStatus === "loaded" ? "hover:opacity-80" : "invisible absolute"}`}
+                onLoad={() => setImgStatus("loaded")}
+                onError={() => setImgStatus("error")}
+              />
+              {imgStatus === "error" && (
+                <div className="flex h-full w-full items-center justify-center">
+                  <ImageOff size={20} className="text-text-tertiary" />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <Camera size={24} className="text-text-tertiary" />
+            </div>
+          )}
+        </button>
+        <div className="flex min-w-0 flex-1 flex-col justify-between">
+          <div>
+            <h4 className="text-sm font-semibold text-text-primary">{item.name}</h4>
+            <p className="mt-1 text-xs leading-relaxed text-text-secondary">{comment}</p>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            {item.price && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-500">
+                <ShoppingCart size={10} />
+                {item.price}
+              </span>
             )}
+            {item.link && (
+              <button
+                onClick={() => openUrl(item.link!)}
+                className="inline-flex items-center gap-1 text-xs text-sky-500 hover:underline"
+              >
+                <ShoppingCart size={10} />
+                {t("settings.contribute.equipmentBuy")}
+                <ExternalLink size={10} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Lightbox */}
+      {lightbox && item.image && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightbox(false)}
+        >
+          <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
             <img
               src={item.image}
               alt={item.name}
-              loading="lazy"
-              className={`h-full w-full object-cover ${imgStatus === "loaded" ? "" : "hidden"}`}
-              onLoad={() => setImgStatus("loaded")}
-              onError={() => setImgStatus("error")}
+              className="max-h-[80vh] max-w-[80vw] rounded-xl object-contain shadow-2xl"
             />
-            {imgStatus === "error" && (
-              <div className="flex h-full w-full items-center justify-center">
-                <ImageOff size={20} className="text-text-tertiary" />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <Camera size={24} className="text-text-tertiary" />
-          </div>
-        )}
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-between">
-        <div>
-          <h4 className="text-sm font-semibold text-text-primary">{item.name}</h4>
-          <p className="mt-1 text-xs leading-relaxed text-text-secondary">{comment}</p>
-        </div>
-        <div className="mt-2 flex items-center gap-2">
-          {item.price && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-500">
-              <ShoppingCart size={10} />
-              {item.price}
-            </span>
-          )}
-          {item.link && (
+            <div className="mt-3 text-center text-sm font-medium text-white">{item.name}</div>
             <button
-              onClick={() => openUrl(item.link!)}
-              className="inline-flex items-center gap-1 text-xs text-sky-500 hover:underline"
+              onClick={() => setLightbox(false)}
+              className="absolute -right-3 -top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/40"
             >
-              Ver <ExternalLink size={10} />
+              <X size={14} />
             </button>
-          )}
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 
@@ -162,14 +196,17 @@ function getSectionOrder(order: string[] | undefined): string[] {
   return [...cleaned.filter((s) => DEFAULT_SECTION_ORDER.includes(s)), ...missing];
 }
 
-const MOCK_FINDINGS_OD = [
-  { key: "normal", label: "Normal" },
-  { key: "cerumen", label: "Cerumen" },
-];
-const MOCK_FINDINGS_OI = [
-  { key: "normal", label: "Normal" },
-  { key: "inflammation", label: "Inflamación" },
-];
+function getMockFindings(side: "OD" | "OI") {
+  const tf = (key: string) => i18n.t(key, { ns: 'findings' });
+  if (side === "OD") return [
+    { key: "normal", label: tf("findings.normal.label") },
+    { key: "cerumen", label: tf("findings.cae_cerumen.label") },
+  ];
+  return [
+    { key: "normal", label: tf("findings.normal.label") },
+    { key: "inflammation", label: tf("findings.inflammation.label") },
+  ];
+}
 
 const EAR_CONTENT_KEYS = new Set(["diagram", "findings", "observations", "images", "annotations"]);
 
@@ -334,8 +371,8 @@ function PdfMockupContent({ form, logoPreview, scale = 1 }: { form: WorkspaceCon
             return hasEarContent ? (
               <div key={sectionKey} className="flex-1" style={{ marginBottom: `${8 * scale}px` }}>
                 <div className="flex" style={{ gap: `${8 * scale}px` }}>
-                  <EarMockup label={t("pdf.labels.rightEar")} side="OD" findings={MOCK_FINDINGS_OD} observation="Sin novedades" form={form} contentOrder={earContentOrder} />
-                  <EarMockup label={t("pdf.labels.leftEar")} side="OI" findings={MOCK_FINDINGS_OI} observation="Leve inflamación" form={form} contentOrder={earContentOrder} />
+                  <EarMockup label={t("pdf.labels.rightEar")} side="OD" findings={getMockFindings("OD")} observation={t("pdf.mock.observationOD")} form={form} contentOrder={earContentOrder} />
+                  <EarMockup label={t("pdf.labels.leftEar")} side="OI" findings={getMockFindings("OI")} observation={t("pdf.mock.observationOI")} form={form} contentOrder={earContentOrder} />
                 </div>
               </div>
             ) : null;
@@ -409,7 +446,7 @@ function PdfMockup({ form, logoPreview }: { form: WorkspaceConfig; logoPreview: 
   );
 }
 
-type TabId = "general" | "informe" | "hallazgos" | "perfiles" | "acerca";
+type TabId = "general" | "informe" | "hallazgos" | "perfiles" | "acerca" | "contribuir";
 
 const TABS: { id: TabId; labelKey: string; icon: typeof Settings2 }[] = [
   { id: "general", labelKey: "settings.tabs.general", icon: Settings2 },
@@ -417,6 +454,7 @@ const TABS: { id: TabId; labelKey: string; icon: typeof Settings2 }[] = [
   { id: "hallazgos", labelKey: "settings.tabs.findings", icon: Stethoscope },
   { id: "perfiles", labelKey: "settings.tabs.profiles", icon: Users },
   { id: "acerca", labelKey: "settings.tabs.about", icon: Info },
+  { id: "contribuir", labelKey: "settings.tabs.contribute", icon: Heart },
 ];
 
 function FindingsConfigTab({
@@ -485,7 +523,7 @@ function FindingsConfigTab({
   }
 
   function handleReset() {
-    onChange(DEFAULT_FINDINGS_CATEGORIES.map((cat) => ({
+    onChange(getDefaultFindingsCategories().map((cat) => ({
       ...cat,
       checks: cat.checks.map((ch) => ({ ...ch })),
     })));
@@ -525,7 +563,7 @@ function FindingsConfigTab({
           <div className="mb-4 flex items-start gap-3">
             <div className="flex-1">
               <label className="mb-1 block text-xs font-medium text-text-tertiary">
-                Nombre de la categoría
+                {t("settings.findings.categoryName")}
               </label>
               <input
                 type="text"
@@ -534,7 +572,7 @@ function FindingsConfigTab({
                 className="w-full rounded-lg border border-border-primary bg-bg-secondary px-3 py-2 text-sm font-semibold text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
               <p className="mt-1 text-xs text-text-tertiary">
-                {cat.checks.length} hallazgo{cat.checks.length !== 1 ? "s" : ""}
+                {t("settings.findings.findingCount", { count: cat.checks.length })}
               </p>
             </div>
             <button
@@ -586,7 +624,7 @@ function FindingsConfigTab({
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border-secondary py-2.5 text-sm text-text-tertiary transition-colors hover:border-accent hover:text-accent-text"
           >
             <Search size={14} />
-            Agregar hallazgo
+            {t("settings.findings.addFinding")}
           </button>
         </div>
       ))}
@@ -739,19 +777,21 @@ export function Settings() {
   const [androidMode, setAndroidMode] = useState(false);
   const initialTab = (searchParams.get("tab") as TabId) || "general";
   const [activeTab, setActiveTab] = useState<TabId>(
-    ["general", "informe", "hallazgos", "perfiles", "acerca"].includes(initialTab) ? initialTab : "general"
+    ["general", "informe", "hallazgos", "perfiles", "acerca", "contribuir"].includes(initialTab) ? initialTab : "general"
   );
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [equipmentStatus, setEquipmentStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+  const update = useUpdateChecker(false);
 
-  const findingsCategories: FindingsCategoryConfig[] =
+  const findingsCategories: FindingsCategoryConfig[] = translateFindingsCategories(
     form.findings_categories && form.findings_categories.length > 0
       ? form.findings_categories
-      : DEFAULT_FINDINGS_CATEGORIES.map((cat) => ({
+      : getDefaultFindingsCategories().map((cat) => ({
           ...cat,
           checks: cat.checks.map((ch) => ({ ...ch })),
-        }));
+        }))
+  );
 
   useEffect(() => {
     isAndroid().then(setAndroidMode);
@@ -767,23 +807,40 @@ export function Settings() {
     if (form.logo_path) {
       loadLogoPreview(form.logo_path);
     } else {
-      setLogoPreview(null);
+      // Fallback: mostrar logo por defecto
+      setLogoPreview("/tecmedhub.jpeg");
     }
   }, [form.logo_path]);
 
   useEffect(() => {
-    if (activeTab !== "acerca" || equipmentStatus !== "idle") return;
+    if (activeTab !== "contribuir" || equipmentStatus !== "idle") return;
     setEquipmentStatus("loading");
     fetch(EQUIPMENT_URL)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((data: Equipment[]) => { setEquipment(data); setEquipmentStatus("loaded"); })
+      .then((data: unknown) => {
+        let list: Equipment[];
+        if (Array.isArray(data)) {
+          list = data as Equipment[];
+        } else if (data && typeof data === "object") {
+          const obj = data as Record<string, unknown>;
+          list = Array.isArray(obj.equipment) ? obj.equipment as Equipment[]
+               : Array.isArray(obj.items) ? obj.items as Equipment[]
+               : [data as Equipment];
+        } else {
+          list = [];
+        }
+        setEquipment(list);
+        setEquipmentStatus("loaded");
+      })
       .catch(() => setEquipmentStatus("error"));
   }, [activeTab, equipmentStatus]);
 
   async function loadLogoPreview(path: string) {
     try {
       const bytes: number[] = await invoke("load_logo", { path });
-      const blob = new Blob([new Uint8Array(bytes)]);
+      const ext = path.split(".").pop()?.toLowerCase() || "png";
+      const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+      const blob = new Blob([new Uint8Array(bytes)], { type: mime });
       setLogoPreview(URL.createObjectURL(blob));
     } catch {
       setLogoPreview(null);
@@ -800,7 +857,11 @@ export function Settings() {
       filters: [{ name: t("ear.imageFilterName"), extensions: ["png", "jpg", "jpeg"] }],
     });
     if (selected) {
-      setForm((f) => ({ ...f, logo_path: selected as string }));
+      const path = selected as string;
+      const bytes: number[] = await invoke("load_logo", { path });
+      const ext = path.split(".").pop()?.toLowerCase() || "png";
+      const savedPath = await invoke<string>("save_logo", { data: bytes, extension: ext });
+      setForm((f) => ({ ...f, logo_path: savedPath }));
     }
   }
 
@@ -815,10 +876,6 @@ export function Settings() {
     e.target.value = "";
   }
 
-  function handleRemoveLogo() {
-    setForm((f) => ({ ...f, logo_path: "" }));
-    setLogoPreview(null);
-  }
 
   async function handleSave() {
     await updateConfig(form);
@@ -978,29 +1035,16 @@ export function Settings() {
                       {t("settings.center.logo")}
                     </label>
                     <div className="flex items-center gap-3">
-                      {logoPreview ? (
-                        <div className="relative">
-                          <img
-                            src={logoPreview}
-                            alt="Logo"
-                            className="h-16 w-16 rounded-lg border border-border-secondary object-contain"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleRemoveLogo}
-                            className="absolute -right-1.5 -top-1.5 rounded-full bg-danger p-0.5 text-text-inverted hover:bg-danger-hover"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex h-16 w-16 items-center justify-center rounded-lg border-2 border-dashed border-border-primary text-text-tertiary">
-                          <ImageIcon size={24} />
-                        </div>
-                      )}
+                      <div className="relative">
+                        <img
+                          src={logoPreview || "/tecmedhub.jpeg"}
+                          alt="Logo"
+                          className="h-16 w-16 rounded-lg border border-border-secondary object-contain"
+                        />
+                      </div>
                       <Button variant="secondary" size="sm" onClick={handleSelectLogo}>
                         <ImageIcon size={14} />
-                        {form.logo_path ? t("settings.center.changeLogo") : t("settings.center.selectLogo")}
+                        {t("settings.center.changeLogo")}
                       </Button>
                     </div>
                   </div>
@@ -1202,7 +1246,32 @@ export function Settings() {
                 </div>
                 <h2 className="text-2xl font-bold text-text-primary">{t("settings.about.title")}</h2>
                 <p className="mt-1 text-sm text-text-tertiary">{t("settings.about.subtitle")}</p>
-                <p className="mt-1 text-xs text-text-tertiary">{t("settings.about.version")} 1.0.0</p>
+                <p className="mt-1 text-xs text-text-tertiary">{t("settings.about.version")} {APP_VERSION}</p>
+                <div className="mt-3">
+                  {update.checking ? (
+                    <span className="inline-flex items-center gap-2 text-xs text-text-tertiary">
+                      <Loader2 size={14} className="animate-spin" />
+                      {t("update.checking")}
+                    </span>
+                  ) : update.error ? (
+                    <span className="text-xs text-red-500">{t("update.checkError")}</span>
+                  ) : update.latestVersion && !update.updateAvailable ? (
+                    <span className="text-xs text-emerald-500">{t("update.upToDate")}</span>
+                  ) : update.updateAvailable && update.releaseUrl ? (
+                    <button
+                      onClick={() => openUrl(update.releaseUrl!)}
+                      className="text-xs font-medium text-accent hover:underline"
+                    >
+                      {t("update.newVersion")}: {update.latestVersion} — {t("update.download")}
+                    </button>
+                  ) : null}
+                  <div className="mt-2">
+                    <Button variant="secondary" size="sm" onClick={update.check} disabled={update.checking}>
+                      <RefreshCw size={14} />
+                      {t("update.checkNow")}
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6">
@@ -1220,11 +1289,122 @@ export function Settings() {
                 <p className="text-sm leading-relaxed text-text-secondary">
                   {t("settings.about.aiDescription")}
                 </p>
-                <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-                  {t("settings.about.collabInvitation")}
-                </p>
               </div>
 
+              <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6">
+                <h3 className="mb-4 text-lg font-semibold text-text-primary">{t("settings.about.teamTitle")}</h3>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="mb-2 text-sm font-semibold text-accent">{t("settings.about.teamLeader")}</h4>
+                    <p className="text-sm text-text-secondary">TM Nicolás Baier — UACh</p>
+                  </div>
+                  <div>
+                    <h4 className="mb-2 text-sm font-semibold text-accent">{t("settings.about.mandator")}</h4>
+                    <p className="text-sm text-text-secondary">TM Carlos Moreira — Hospital de Angol</p>
+                  </div>
+                  <div>
+                    <h4 className="mb-2 text-sm font-semibold text-accent">{t("settings.about.teamWork")}</h4>
+                    <ul className="space-y-1 text-sm text-text-secondary">
+                      <li>TM Vanessa Uribe — UACh</li>
+                      <li>TM Fernanda López — UACh</li>
+                      <li>TM Cristina Vargas — UACh</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="mb-2 text-sm font-semibold text-accent">{t("settings.about.reviewers")}</h4>
+                    <ul className="space-y-1 text-sm text-text-secondary">
+                      <li>TM Pablo Poza — Escuela de Tecnología Médica, UACh</li>
+                      <li>TM Geovana Casanova — Escuela de Tecnología Médica, UACh</li>
+                      <li>TM María Paz Latorre — Centro de Salud La Colina, UACh</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* TecMedHub lab card */}
+              <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-6">
+                <div className="mb-3 flex items-center gap-2">
+                  <MapPin size={20} className="text-violet-500" />
+                  <h3 className="text-lg font-semibold text-text-primary">{t("settings.about.labTitle")}</h3>
+                </div>
+                <p className="text-sm leading-relaxed text-text-secondary">
+                  {t("settings.about.labOrigin")}
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+                  {t("settings.about.labLocation")}
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+                  {t("settings.about.labCoffee")}
+                </p>
+                <div className="mt-4">
+                  <button
+                    onClick={() => openUrl("https://maps.app.goo.gl/XvExh11Wb3LaT5WY8")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-400 transition hover:bg-violet-500/20"
+                  >
+                    <MapPin size={12} />
+                    {t("settings.about.labMapButton")}
+                    <ExternalLink size={11} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6 text-center space-y-3">
+                <div className="flex items-center justify-center gap-3 text-xs text-text-tertiary">
+                  <button onClick={() => openUrl("https://github.com/TecMedHub/OtoReport")} className="inline-flex items-center gap-1 hover:text-accent">
+                    <Github size={12} /> OtoReport <ExternalLink size={10} />
+                  </button>
+                  <span>·</span>
+                  <button onClick={() => openUrl("https://github.com/TecMedHub/Otoreports_findings")} className="inline-flex items-center gap-1 hover:text-accent">
+                    <Github size={12} /> Findings Library <ExternalLink size={10} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-center gap-3 text-xs text-text-tertiary">
+                  <button onClick={() => openUrl("https://www.instagram.com/tecmedhub")} className="inline-flex items-center gap-1 hover:text-accent">
+                    TecMedHub <ExternalLink size={10} />
+                  </button>
+                  <span>·</span>
+                  <button onClick={() => openUrl("http://tmeduca.org")} className="inline-flex items-center gap-1 hover:text-accent">
+                    tmeduca.org <ExternalLink size={10} />
+                  </button>
+                  <span>·</span>
+                  <button onClick={() => openUrl("https://uach.cl")} className="inline-flex items-center gap-1 hover:text-accent">
+                    UACh <ExternalLink size={10} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Contribuir */}
+          {activeTab === "contribuir" && (
+            <div className="mx-auto max-w-3xl space-y-6">
+              {/* Ko-fi */}
+              <div className="rounded-xl border border-amber-400/40 bg-gradient-to-br from-amber-500/10 to-orange-500/5 p-6">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20">
+                    <Coffee size={22} className="text-amber-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-text-primary">{t("settings.contribute.kofiTitle")}</h3>
+                </div>
+                <p className="text-sm leading-relaxed text-text-secondary">
+                  {t("settings.contribute.kofiDescription")}
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+                  {t("settings.contribute.kofiCoffee")}
+                </p>
+                <div className="mt-5 flex justify-center">
+                  <button
+                    onClick={() => openUrl("https://ko-fi.com/tecmedhub")}
+                    className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-amber-400 active:scale-95"
+                  >
+                    <Coffee size={16} />
+                    {t("settings.contribute.kofiButton")}
+                    <ExternalLink size={13} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Biblioteca de hallazgos */}
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-6">
                 <div className="mb-3 flex items-center gap-2">
                   <BookOpen size={20} className="text-emerald-500" />
@@ -1266,6 +1446,7 @@ export function Settings() {
                 </div>
               </div>
 
+              {/* Equipos recomendados */}
               <div className="rounded-xl border border-sky-500/30 bg-sky-500/5 p-6">
                 <div className="mb-3 flex items-center gap-2">
                   <Camera size={20} className="text-sky-500" />
@@ -1302,6 +1483,36 @@ export function Settings() {
                   </div>
                 )}
 
+                <div className="mt-5 rounded-lg border border-sky-500/20 bg-sky-500/5 p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-sky-500">{t("settings.contribute.equipmentSubmitTitle")}</p>
+                  <ul className="space-y-1.5 text-sm text-text-secondary">
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" />
+                      {t("settings.contribute.equipmentField1")}
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" />
+                      {t("settings.contribute.equipmentField2")}
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" />
+                      {t("settings.contribute.equipmentField3")}
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" />
+                      {t("settings.contribute.equipmentField4")}
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" />
+                      {t("settings.contribute.equipmentField5")}
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" />
+                      {t("settings.contribute.equipmentField6")}
+                    </li>
+                  </ul>
+                </div>
+
                 <div className="mt-4 flex items-center gap-2 text-sm text-text-secondary">
                   <MessageCircle size={14} className="shrink-0 text-sky-500" />
                   <span>{t("settings.about.equipmentShareExperience")}</span>
@@ -1311,37 +1522,12 @@ export function Settings() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6">
-                <h3 className="mb-4 text-lg font-semibold text-text-primary">{t("settings.about.teamTitle")}</h3>
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="mb-2 text-sm font-semibold text-accent">{t("settings.about.teamLeader")}</h4>
-                    <p className="text-sm text-text-secondary">TM Nicolás Baier — UACh</p>
-                  </div>
-                  <div>
-                    <h4 className="mb-2 text-sm font-semibold text-accent">{t("settings.about.mandator")}</h4>
-                    <p className="text-sm text-text-secondary">TM Carlos Moreira — Hospital de Angol</p>
-                  </div>
-                  <div>
-                    <h4 className="mb-2 text-sm font-semibold text-accent">{t("settings.about.teamWork")}</h4>
-                    <ul className="space-y-1 text-sm text-text-secondary">
-                      <li>TM Vanessa Uribe — UACh</li>
-                      <li>TM Fernanda López — UACh</li>
-                      <li>TM Cristina Vargas — UACh</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="mb-2 text-sm font-semibold text-accent">{t("settings.about.reviewers")}</h4>
-                    <ul className="space-y-1 text-sm text-text-secondary">
-                      <li>TM Pablo Poza — Escuela de Tecnología Médica, UACh</li>
-                      <li>TM Geovana Casanova — Escuela de Tecnología Médica, UACh</li>
-                      <li>TM María Paz Latorre — Centro de Salud La Colina, UACh</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
+              {/* GitHub */}
               <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6 text-center space-y-3">
+                <div className="mb-1 flex items-center justify-center gap-2 text-sm font-medium text-text-secondary">
+                  <Heart size={14} className="text-rose-500" />
+                  {t("settings.contribute.githubTitle")}
+                </div>
                 <div className="flex items-center justify-center gap-3 text-xs text-text-tertiary">
                   <button onClick={() => openUrl("https://github.com/TecMedHub/OtoReport")} className="inline-flex items-center gap-1 hover:text-accent">
                     <Github size={12} /> OtoReport <ExternalLink size={10} />
@@ -1349,19 +1535,6 @@ export function Settings() {
                   <span>·</span>
                   <button onClick={() => openUrl("https://github.com/TecMedHub/Otoreports_findings")} className="inline-flex items-center gap-1 hover:text-accent">
                     <Github size={12} /> Findings Library <ExternalLink size={10} />
-                  </button>
-                </div>
-                <div className="flex items-center justify-center gap-3 text-xs text-text-tertiary">
-                  <button onClick={() => openUrl("https://www.instagram.com/tecmedhub")} className="inline-flex items-center gap-1 hover:text-accent">
-                    TecMedHub <ExternalLink size={10} />
-                  </button>
-                  <span>·</span>
-                  <button onClick={() => openUrl("http://tmeduca.org")} className="inline-flex items-center gap-1 hover:text-accent">
-                    tmeduca.org <ExternalLink size={10} />
-                  </button>
-                  <span>·</span>
-                  <button onClick={() => openUrl("https://uach.cl")} className="inline-flex items-center gap-1 hover:text-accent">
-                    UACh <ExternalLink size={10} />
                   </button>
                 </div>
               </div>
@@ -1522,6 +1695,14 @@ function ProfilesTab({
 
               {editingId === profile.id && (
                 <div className="mt-3 border-t border-border-secondary pt-3">
+                  <div className="mb-2 flex items-center justify-center">
+                    <SpriteAvatar
+                      avatar={editAvatar}
+                      name={editName.trim() || "?"}
+                      color={editColor}
+                      size={64}
+                    />
+                  </div>
                   <AvatarPicker selected={editAvatar} onSelect={setEditAvatar} />
                 </div>
               )}

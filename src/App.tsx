@@ -1,5 +1,7 @@
 import { createHashRouter, RouterProvider } from "react-router-dom";
 import { WorkspaceProvider, useWorkspace } from "@/hooks/useWorkspace";
+import { useUpdateChecker } from "@/hooks/useUpdateChecker";
+import { UpdateModal } from "@/components/ui/UpdateModal";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { ToastProvider } from "@/components/ui/Toast";
 import { KonamiEasterEgg } from "@/components/KonamiEasterEgg";
@@ -69,7 +71,22 @@ function AppContent() {
     return <ProfileSelector />;
   }
 
-  return <RouterProvider router={router} />;
+  const update = useUpdateChecker();
+
+  return (
+    <>
+      <RouterProvider router={router} />
+      {update.updateAvailable && !update.dismissed && update.latestVersion && update.releaseUrl && (
+        <UpdateModal
+          open
+          onClose={update.dismiss}
+          latestVersion={update.latestVersion}
+          releaseNotes={update.releaseNotes}
+          releaseUrl={update.releaseUrl}
+        />
+      )}
+    </>
+  );
 }
 
 function App() {

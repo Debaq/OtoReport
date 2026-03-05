@@ -18,6 +18,7 @@ import {
   saveProfiles as saveProfilesApi,
   setActiveProfile as setActiveProfileApi,
   getActiveProfileId,
+  saveDefaultLogo,
 } from "@/lib/filesystem";
 import { isAndroid } from "@/lib/platform";
 import type { WorkspaceConfig, UserProfile } from "@/types";
@@ -31,7 +32,7 @@ interface WorkspaceContextType {
   profiles: UserProfile[];
   activeProfile: UserProfile | null;
   profileSelected: boolean;
-  selectWorkspace: (profileName?: string) => Promise<boolean>;
+  selectWorkspace: (profileName?: string, avatar?: number) => Promise<boolean>;
   updateConfig: (config: WorkspaceConfig) => Promise<void>;
   setActiveProfile: (profileId: string) => Promise<void>;
   addProfile: (name: string, color: string, avatar?: number) => Promise<UserProfile>;
@@ -119,7 +120,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const selectWorkspace = useCallback(async (profileName?: string) => {
+  const selectWorkspace = useCallback(async (profileName?: string, avatar?: number) => {
     const selected = await open({ directory: true, multiple: false });
     if (selected) {
       const path = selected as string;
@@ -130,16 +131,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const existingProfiles = await getProfiles();
 
       if (existingProfiles.length === 0 && profileName) {
-        // Crear primer perfil
+        // Crear primer perfil con logo por defecto
+        const defaultLogoPath = await saveDefaultLogo().catch(() => "");
         const profile: UserProfile = {
           id: uuidv4(),
           name: profileName,
           color: PROFILE_COLORS[0],
+          avatar,
           center_name: "",
           center_address: "",
           center_phone: "",
           center_email: "",
-          logo_path: "",
+          logo_path: defaultLogoPath,
           examiner: profileName,
           equipment: "",
           report_title: "Informe de Otoscopía",
@@ -210,6 +213,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [profiles]);
 
   const addProfile = useCallback(async (name: string, color: string, avatar?: number) => {
+    const defaultLogoPath = await saveDefaultLogo().catch(() => "");
     const profile: UserProfile = {
       id: uuidv4(),
       name,
@@ -219,7 +223,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       center_address: "",
       center_phone: "",
       center_email: "",
-      logo_path: "",
+      logo_path: defaultLogoPath,
       examiner: name,
       equipment: "",
       report_title: "Informe de Otoscopía",

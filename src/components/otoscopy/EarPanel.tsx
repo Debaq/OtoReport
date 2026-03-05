@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { compositeAnnotations } from "@/lib/annotation-renderer";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import type { EarData, FindingsCategoryConfig } from "@/types";
@@ -20,13 +21,15 @@ interface EarPanelProps {
   data: EarData;
   patientId: string;
   sessionId: string;
+  patientName?: string;
+  reportDate?: string;
   onChange: (data: EarData) => void;
   onMoveImage?: (image: EarImage) => void;
   readOnly?: boolean;
   categoriesConfig?: FindingsCategoryConfig[];
 }
 
-export function EarPanel({ side, data, patientId, sessionId, onChange, onMoveImage, readOnly, categoriesConfig }: EarPanelProps) {
+export function EarPanel({ side, data, patientId, sessionId, patientName, reportDate, onChange, onMoveImage, readOnly, categoriesConfig }: EarPanelProps) {
   const { t } = useTranslation();
   const isRight = side === "right" || side === "pre_right" || side === "post_right";
   const title = isRight ? t("ear.right") : t("ear.left");
@@ -94,6 +97,28 @@ export function EarPanel({ side, data, patientId, sessionId, onChange, onMoveIma
       } finally {
         setLoadingFiles(false);
       }
+    }
+  }
+
+  async function handleDownload(img: EarImage) {
+    try {
+      const rawUrl = await loadImageUrl(img.filename);
+      const hasEdits = img.rotation !== 0 || img.annotations.length > 0 || !!img.crop;
+      const finalUrl = hasEdits
+        ? await compositeAnnotations(rawUrl, img.annotations, img.rotation, null, img.crop, img.background)
+        : rawUrl;
+
+      const sideLabel = isRight ? "derecho" : "izquierdo";
+      const name = (patientName || "paciente").replace(/\s+/g, "_");
+      const date = (reportDate || new Date().toISOString().slice(0, 10)).replace(/\//g, "-");
+      const filename = `${name}_${sideLabel}_${img.id.slice(0, 8)}_${date}.png`;
+
+      const a = document.createElement("a");
+      a.href = finalUrl;
+      a.download = filename;
+      a.click();
+    } catch (err) {
+      console.error("Error descargando imagen:", err);
     }
   }
 
@@ -176,6 +201,7 @@ export function EarPanel({ side, data, patientId, sessionId, onChange, onMoveIma
                 setLoadingAnnotator(false);
               }
             }}
+            onDownload={handleDownload}
             onMoveToOtherEar={!readOnly ? onMoveImage : undefined}
             onClearAnnotations={(id) => {
               const updated = data.images.map((img) =>

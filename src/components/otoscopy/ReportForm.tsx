@@ -9,7 +9,7 @@ import { Save, FileText, ChevronDown, ChevronUp, RefreshCw, Settings, Import, X 
 import { Link } from "react-router-dom";
 import type { EarImage } from "@/types/image";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { DEFAULT_FINDINGS_CATEGORIES } from "@/types/report";
+import { getDefaultFindingsCategories, translateFindingsCategories } from "@/types/report";
 import { formatDate } from "@/lib/utils";
 
 interface ReportFormProps {
@@ -29,9 +29,11 @@ export function ReportForm({ report, onChange, onSave, saving, readOnly }: Repor
   const reportCategories = report.findings_categories;
 
   function handleUpdateFindings() {
-    const cats = config?.findings_categories && config.findings_categories.length > 0
-      ? config.findings_categories
-      : DEFAULT_FINDINGS_CATEGORIES;
+    const cats = translateFindingsCategories(
+      config?.findings_categories && config.findings_categories.length > 0
+        ? config.findings_categories
+        : getDefaultFindingsCategories()
+    );
     onChange((r) => ({
       ...r,
       findings_categories: cats.map((c) => ({ ...c, checks: c.checks.map((ch) => ({ ...ch })) })),
@@ -333,6 +335,8 @@ export function ReportForm({ report, onChange, onSave, saving, readOnly }: Repor
               onChange={(data) => onChange((r) => ({ ...r, right_ear: data }))}
               onMoveImage={(img) => handleMoveImage(isEarWash ? "pre_right" : "right", img)}
               readOnly={readOnly}
+              patientName={report.patient.name}
+              reportDate={report.created_at}
               categoriesConfig={reportCategories}
             />
             <EarPanel
@@ -343,6 +347,8 @@ export function ReportForm({ report, onChange, onSave, saving, readOnly }: Repor
               onChange={(data) => onChange((r) => ({ ...r, left_ear: data }))}
               onMoveImage={(img) => handleMoveImage(isEarWash ? "pre_left" : "left", img)}
               readOnly={readOnly}
+              patientName={report.patient.name}
+              reportDate={report.created_at}
               categoriesConfig={reportCategories}
             />
           </div>
@@ -372,6 +378,8 @@ export function ReportForm({ report, onChange, onSave, saving, readOnly }: Repor
               onChange={(data) => onChange((r) => ({ ...r, post_right_ear: data }))}
               onMoveImage={(img) => handleMoveImage("post_right", img)}
               readOnly={readOnly}
+              patientName={report.patient.name}
+              reportDate={report.created_at}
               categoriesConfig={reportCategories}
             />
             <EarPanel
@@ -382,6 +390,8 @@ export function ReportForm({ report, onChange, onSave, saving, readOnly }: Repor
               onChange={(data) => onChange((r) => ({ ...r, post_left_ear: data }))}
               onMoveImage={(img) => handleMoveImage("post_left", img)}
               readOnly={readOnly}
+              patientName={report.patient.name}
+              reportDate={report.created_at}
               categoriesConfig={reportCategories}
             />
           </div>

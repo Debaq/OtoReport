@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
@@ -18,6 +18,22 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { ImageAnnotator } from "@/components/annotation/ImageAnnotator";
 import { getFindingsLibrary } from "@/lib/findings-library";
 import type { Annotation, CropData } from "@/types/annotation";
+
+const INDEX_URL =
+  "https://raw.githubusercontent.com/TecMedHub/Otoreports_findings/main/json/index.json";
+
+type ContributorEntry = { file: string; name: string };
+
+/** Calcula el siguiente nombre de archivo disponible para un finding key */
+function getNextFilename(
+  findingKey: string,
+  existingEntries: ContributorEntry[]
+): string {
+  if (existingEntries.length === 0) return `${findingKey}.webp`;
+  // Siguiente número: contar existentes + 1 (la primera no tiene número)
+  const nextNum = existingEntries.length + 1;
+  return `${findingKey}_${nextNum}.webp`;
+}
 
 export function ContributeFinding() {
   const { findingKey } = useParams<{ findingKey: string }>();
@@ -39,6 +55,24 @@ export function ContributeFinding() {
   const [background, setBackground] = useState<"black" | "white" | "transparent">("black");
   const [showAnnotator, setShowAnnotator] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [existingEntries, setExistingEntries] = useState<ContributorEntry[]>([]);
+
+  // Obtener contributors existentes del index remoto
+  useEffect(() => {
+    if (!findingKey) return;
+    fetch(INDEX_URL, { cache: "no-cache" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data?.contributors?.[findingKey]) return;
+        const raw = data.contributors[findingKey];
+        if (typeof raw === "string") {
+          setExistingEntries([{ file: `${findingKey}.webp`, name: raw }]);
+        } else if (Array.isArray(raw)) {
+          setExistingEntries(raw);
+        }
+      })
+      .catch(() => {});
+  }, [findingKey]);
 
   const selectImage = useCallback(async () => {
     const selected = await open({
@@ -79,6 +113,8 @@ export function ContributeFinding() {
   const generateZip = useCallback(async () => {
     if (!imageBytes || !findingKey) return;
 
+    const imageFilename = getNextFilename(findingKey, existingEntries);
+
     const savePath = await save({
       defaultPath: `${findingKey}_contribution.zip`,
       filters: [{ name: "ZIP", extensions: ["zip"] }],
@@ -89,6 +125,7 @@ export function ContributeFinding() {
     try {
       const metadata = {
         findingKey,
+        file: imageFilename,
         contributorName,
         timestamp: new Date().toISOString(),
       };
@@ -102,6 +139,7 @@ export function ContributeFinding() {
 
       await invoke("create_contribution_zip", {
         imageData: Array.from(imageBytes),
+        imageFilename,
         annotationsJson: JSON.stringify(annotationsData, null, 2),
         metadataJson: JSON.stringify(metadata, null, 2),
         savePath: savePath,
@@ -113,7 +151,7 @@ export function ContributeFinding() {
     } finally {
       setGenerating(false);
     }
-  }, [imageBytes, findingKey, contributorName, annotations, rotation, crop, background, toast, t]);
+  }, [imageBytes, findingKey, contributorName, existingEntries, annotations, rotation, crop, background, toast, t]);
 
   if (!finding) {
     return (

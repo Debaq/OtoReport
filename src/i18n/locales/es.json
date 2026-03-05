@@ -8,7 +8,9 @@
     "name": "Nombre",
     "color": "Color",
     "create": "Crear perfil",
-    "done": "Listo"
+    "done": "Listo",
+    "avatarHint": "Puedes personalizar tu avatar en Administrar perfiles",
+    "chooseAvatar": "Elige tu avatar (opcional)"
   },
   "setup": {
     "welcome": "Bienvenido a OtoReport",
@@ -110,6 +112,10 @@
       "observations": "Observaciones",
       "conclusion": "Conclusión",
       "page": "Página {{current}} de {{total}}"
+    },
+    "mock": {
+      "observationOD": "Sin novedades",
+      "observationOI": "Leve inflamación"
     }
   },
   "settings": {
@@ -119,7 +125,8 @@
       "report": "Informe",
       "findings": "Hallazgos",
       "profiles": "Perfiles",
-      "about": "Acerca de"
+      "about": "Acerca de",
+      "contribute": "Contribuir"
     },
     "appearance": {
       "title": "Apariencia",
@@ -223,7 +230,28 @@
       "equipmentLoading": "Cargando equipos recomendados...",
       "equipmentOffline": "No se pudo cargar la lista de equipos",
       "equipmentRetry": "Reintentar",
-      "equipmentShareExperience": "¿Usas un video otoscopio que no está listado? Cuéntanos tu experiencia por Instagram:"
+      "equipmentShareExperience": "¿Usas un video otoscopio que no está listado? Cuéntanos tu experiencia por Instagram:",
+      "labTitle": "El laboratorio escondido",
+      "labOrigin": "OtoReport nació porque TM Carlos Moreira, del Hospital de Angol, nos lo pidió. Así funciona TecMedHub: cualquier persona puede hacernos llegar una necesidad, y si podemos, la convertimos en una herramienta que compartimos con toda la comunidad.",
+      "labLocation": "Somos un laboratorio escondido en el Edificio 500 de la sede Puerto Montt de la Universidad Austral de Chile. Un rincón donde la tecnología médica y la vocación se mezclan con mucho café.",
+      "labCoffee": "Si alguna vez pasas por acá, la puerta está abierta y el café también.",
+      "labMapButton": "¿Dónde estamos?"
+    },
+    "contribute": {
+      "kofiTitle": "Apoya el proyecto",
+      "kofiDescription": "OtoReport es un proyecto sin financiamiento externo. Lo hacemos con gusto, con vocación y con mucha dedicación, porque creemos que la tecnología médica libre puede mejorar la atención auditiva. Cada aporte, por pequeño que sea, nos hace crecer más y nos llena de alegría.",
+      "kofiCoffee": "Si es un café... en cualquier laboratorio el café es el combustible del corazón y las manos. ¡Gracias por estar aquí!",
+      "kofiButton": "Invitarnos un café en Ko-fi",
+      "githubTitle": "Contribuir en GitHub",
+      "equipmentBuy": "¿Dónde comprarlo?",
+      "equipmentViewImage": "Ver imagen completa",
+      "equipmentSubmitTitle": "¿Quieres agregar tu otoscopio?",
+      "equipmentField1": "Nombre del equipo (marca y modelo exacto)",
+      "equipmentField2": "Una breve descripción de tu experiencia clínica con él",
+      "equipmentField3": "Precio aproximado o rango (opcional, ayuda a la comunidad)",
+      "equipmentField4": "Enlace oficial del producto (tienda o fabricante)",
+      "equipmentField5": "Una foto o imagen representativa del equipo (opcional)",
+      "equipmentField6": "Tu nombre o institución si deseas que te acreditemos"
     },
     "save": "Guardar Configuración",
     "saved": "Guardado"
@@ -231,7 +259,7 @@
   "patients": {
     "title": "Pacientes",
     "name": "Nombre",
-    "rut": "RUT",
+    "rut": "RUT / ID / DNI",
     "age": "Edad",
     "ageYears": "años",
     "phone": "Teléfono",
@@ -254,7 +282,7 @@
     "form": {
       "nameLabel": "Nombre completo",
       "nameRequired": "Nombre requerido",
-      "rutInvalid": "RUT inválido",
+      "rutInvalid": "Identificación requerida",
       "birthDateRequired": "Fecha requerida",
       "emailInvalid": "Email inválido",
       "update": "Actualizar Paciente",
@@ -354,5 +382,17 @@
     "search": "Buscar",
     "noResults": "No se encontraron resultados",
     "noFindings": "Sin hallazgos"
+  },
+  "update": {
+    "available": "Actualización disponible",
+    "currentVersion": "Versión actual",
+    "newVersion": "Nueva versión",
+    "releaseNotes": "Notas del release",
+    "download": "Descargar",
+    "dismiss": "Recordar más tarde",
+    "checking": "Buscando actualizaciones...",
+    "upToDate": "Estás al día con la última versión",
+    "checkError": "No se pudo verificar actualizaciones",
+    "checkNow": "Buscar actualizaciones"
   }
 }

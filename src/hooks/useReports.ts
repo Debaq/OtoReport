@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
 import type { Report, EarData, SessionInfo, Patient, FindingsCategoryConfig, ReportType } from "@/types";
 import { DEFAULT_EAR_FINDINGS } from "@/types/findings";
-import { DEFAULT_FINDINGS_CATEGORIES } from "@/types/report";
+import { getDefaultFindingsCategories, translateFindingsCategories } from "@/types/report";
 import { useWorkspace } from "./useWorkspace";
 
 function createEmptyEarData(): EarData {
@@ -26,7 +26,8 @@ export function createEmptyReport(
   const now = new Date().toISOString();
   const cats = findingsCategories && findingsCategories.length > 0
     ? findingsCategories
-    : DEFAULT_FINDINGS_CATEGORIES;
+    : getDefaultFindingsCategories();
+  const translatedCats = translateFindingsCategories(cats);
   const report: Report = {
     id: uuidv4(),
     patient_id: patient.id,
@@ -41,7 +42,7 @@ export function createEmptyReport(
     conclusion: "",
     created_at: now,
     updated_at: now,
-    findings_categories: cats.map((c) => ({ ...c, checks: c.checks.map((ch) => ({ ...ch })) })),
+    findings_categories: translatedCats.map((c) => ({ ...c, checks: c.checks.map((ch) => ({ ...ch })) })),
   };
   if (reportType === "ear_wash") {
     report.post_right_ear = createEmptyEarData();

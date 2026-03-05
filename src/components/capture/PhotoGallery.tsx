@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Check, Trash2, Star, Pencil, EraserIcon, ArrowRightLeft, Crop } from "lucide-react";
+import { Check, Trash2, Star, Pencil, EraserIcon, ArrowRightLeft, Crop, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { compositeAnnotations } from "@/lib/annotation-renderer";
 import type { EarImage } from "@/types/image";
@@ -14,6 +14,7 @@ interface PhotoGalleryProps {
   onAnnotate?: (image: EarImage) => void;
   onClearAnnotations?: (id: string) => void;
   onMoveToOtherEar?: (image: EarImage) => void;
+  onDownload?: (image: EarImage) => void;
 }
 
 export function PhotoGallery({
@@ -26,6 +27,7 @@ export function PhotoGallery({
   onAnnotate,
   onClearAnnotations,
   onMoveToOtherEar,
+  onDownload,
 }: PhotoGalleryProps) {
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   // Track a cache key per image to detect when crop/rotation/annotations change
@@ -156,6 +158,15 @@ export function PhotoGallery({
               </button>
             )}
             <div className="flex-1" />
+            {onDownload && (
+              <button
+                onClick={() => onDownload(img)}
+                className="rounded p-1 text-text-tertiary transition-colors hover:bg-accent-subtle hover:text-accent-text"
+                title="Descargar"
+              >
+                <Download size={14} />
+              </button>
+            )}
             <button
               onClick={() => onRemove(img.id)}
               className="rounded p-1 text-text-tertiary transition-colors hover:bg-danger-subtle hover:text-danger-text"

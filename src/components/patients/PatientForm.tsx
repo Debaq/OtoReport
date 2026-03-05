@@ -49,7 +49,7 @@ export function PatientForm({ patient, onSave, onCancel }: PatientFormProps) {
 
   const schema = z.object({
     name: z.string().min(2, t("patients.form.nameRequired")),
-    rut: z.string().refine((v) => validateRut(v), t("patients.form.rutInvalid")),
+    rut: z.string().min(1, t("patients.form.rutInvalid")),
     birth_date: z.string().min(1, t("patients.form.birthDateRequired")),
     phone: z.string().optional(),
     email: z.string().email(t("patients.form.emailInvalid")).or(z.literal("")).optional(),
@@ -85,7 +85,7 @@ export function PatientForm({ patient, onSave, onCancel }: PatientFormProps) {
     const now = new Date().toISOString();
     const p: Patient = {
       id: patient?.id ?? uuidv4(),
-      rut: formatRut(data.rut),
+      rut: validateRut(cleanRut(data.rut)) ? formatRut(data.rut) : data.rut.trim(),
       name: data.name,
       birth_date: data.birth_date,
       age: calculateAge(data.birth_date),
@@ -111,8 +111,8 @@ export function PatientForm({ patient, onSave, onCancel }: PatientFormProps) {
         id="rut"
         {...register("rut")}
         error={errors.rut?.message}
-        value={formatRut(rutValue)}
-        onChange={(e) => setValue("rut", cleanRut(e.target.value))}
+        value={validateRut(cleanRut(rutValue)) ? formatRut(rutValue) : rutValue}
+        onChange={(e) => setValue("rut", e.target.value)}
       />
       <div className="space-y-1">
         <div className="flex items-baseline gap-2">

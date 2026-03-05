@@ -8,7 +8,7 @@ import {
 } from "@react-pdf/renderer";
 import type { Report, EarData, WorkspaceConfig, FindingsCategoryConfig } from "@/types";
 import type { EarFindings, QuadrantMark } from "@/types/findings";
-import { FindingType, DEFAULT_FINDINGS_CATEGORIES } from "@/types";
+import { FindingType, getDefaultFindingsCategories, translateFindingsCategories } from "@/types";
 import i18n from "@/i18n/config";
 
 const DEFAULT_SECTION_ORDER = ["header", "logo", "patient_info", "exam_info", "diagram", "findings", "observations", "images", "annotations", "conclusion", "footer"];
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
 });
 
 function buildFindingLabels(categories?: FindingsCategoryConfig[]): Record<string, string> {
-  const cats = categories && categories.length > 0 ? categories : DEFAULT_FINDINGS_CATEGORIES;
+  const cats = translateFindingsCategories(categories && categories.length > 0 ? categories : getDefaultFindingsCategories());
   const labels: Record<string, string> = {};
   for (const cat of cats) {
     const prefix = cat.id === "cae" ? "CAE " : "";
@@ -208,13 +208,64 @@ const diagramColors: Record<string, string> = {
 };
 
 
+function DiagramsRow({
+  rightData,
+  leftData,
+  rightDiagramUrl,
+  leftDiagramUrl,
+}: {
+  rightData: EarData;
+  leftData: EarData;
+  rightDiagramUrl?: string;
+  leftDiagramUrl?: string;
+}) {
+  const diagLabels = getDiagramLabels();
+  const rightFindings = rightData.marks.marks.map((m: QuadrantMark) => m.finding);
+  const leftFindings = leftData.marks.marks.map((m: QuadrantMark) => m.finding);
+  const allFindings = [...new Set([...rightFindings, ...leftFindings])];
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "center", gap: 12, marginBottom: 6 }}>
+      {rightDiagramUrl && (
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontSize: 8, fontWeight: "bold", color: EAR_COLORS.right, marginBottom: 3 }}>
+            {i18n.t("pdf.labels.rightEar")}
+          </Text>
+          <Image src={rightDiagramUrl} style={{ width: 100, height: 100 }} />
+        </View>
+      )}
+      {allFindings.length > 0 && (
+        <View style={{ justifyContent: "center", paddingTop: 14 }}>
+          {allFindings.map((f) => (
+            <View key={f} style={{ flexDirection: "row", alignItems: "center", marginBottom: 2 }}>
+              <Text style={{ fontSize: 7, color: diagramColors[f] || "#888", fontFamily: "Courier", width: 22 }}>
+                {diagramSymbols[f] || "?"}
+              </Text>
+              <Text style={{ fontSize: 7, color: "#4b5563" }}>
+                {diagLabels[f] || f}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {leftDiagramUrl && (
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontSize: 8, fontWeight: "bold", color: EAR_COLORS.left, marginBottom: 3 }}>
+            {i18n.t("pdf.labels.leftEar")}
+          </Text>
+          <Image src={leftDiagramUrl} style={{ width: 100, height: 100 }} />
+        </View>
+      )}
+    </View>
+  );
+}
+
 function EarSection({
   title,
   side,
   data,
   primaryImage,
   secondaryImages,
-  diagramUrl,
   config,
   contentOrder,
   reportCategories,
@@ -224,14 +275,12 @@ function EarSection({
   data: EarData;
   primaryImage: string | null;
   secondaryImages: string[];
-  diagramUrl?: string;
   config: WorkspaceConfig;
   contentOrder: string[];
   reportCategories?: FindingsCategoryConfig[];
 }) {
   const secSize = IMAGE_SIZES[config.image_size] || IMAGE_SIZES.medium;
   const earColor = EAR_COLORS[side];
-  const diagLabels = getDiagramLabels();
 
   return (
     <View style={styles.earColumn}>
@@ -240,24 +289,6 @@ function EarSection({
       </Text>
       {contentOrder.map((key) => {
         switch (key) {
-          case "diagram":
-            return config.show_diagram && diagramUrl ? (
-              <View key={key} style={{ marginBottom: 6 }}>
-                <Image
-                  src={diagramUrl}
-                  style={{ width: 100, height: 100 }}
-                />
-                {data.marks.marks.length > 0 && (
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
-                    {[...new Set(data.marks.marks.map((m: QuadrantMark) => m.finding))].map((f) => (
-                      <Text key={f} style={{ fontSize: 6, color: diagramColors[f] || "#888" }}>
-                        {diagramSymbols[f] || "?"} {diagLabels[f] || f}
-                      </Text>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ) : null;
           case "findings":
             return config.show_findings ? (
               <View key={key}><ActiveFindings findings={data.findings} categories={reportCategories} /></View>
@@ -432,15 +463,27 @@ export function PdfReport({
           </View>
         </View>
       ) : null,
-    "__ear__": () =>
-      hasEarContent ? (
-        isEarWash && report.post_right_ear && report.post_left_ear ? (
+    "__ear__": () => {
+      if (!hasEarContent) return null;
+      const nonDiagramOrder = earContentOrder.filter((k) => k !== "diagram");
+      const showDiagrams = config.show_diagram && (rightDiagramUrl || leftDiagramUrl);
+
+      if (isEarWash && report.post_right_ear && report.post_left_ear) {
+        return (
           <View key="ear_content">
             {/* Pre-Lavado */}
             <View style={styles.section}>
               <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
                 {i18n.t("report.earWash.pre")}
               </Text>
+              {showDiagrams && (
+                <DiagramsRow
+                  rightData={report.right_ear}
+                  leftData={report.left_ear}
+                  rightDiagramUrl={rightDiagramUrl}
+                  leftDiagramUrl={leftDiagramUrl}
+                />
+              )}
               <View style={styles.earContainer}>
                 <EarSection
                   title={i18n.t("pdf.labels.rightEar")}
@@ -448,9 +491,8 @@ export function PdfReport({
                   data={report.right_ear}
                   primaryImage={rightEarPrimary}
                   secondaryImages={rightEarSecondary}
-                  diagramUrl={rightDiagramUrl}
                   config={config}
-                  contentOrder={earContentOrder}
+                  contentOrder={nonDiagramOrder}
                   reportCategories={report.findings_categories}
                 />
                 <EarSection
@@ -459,9 +501,8 @@ export function PdfReport({
                   data={report.left_ear}
                   primaryImage={leftEarPrimary}
                   secondaryImages={leftEarSecondary}
-                  diagramUrl={leftDiagramUrl}
                   config={config}
-                  contentOrder={earContentOrder}
+                  contentOrder={nonDiagramOrder}
                   reportCategories={report.findings_categories}
                 />
               </View>
@@ -471,6 +512,14 @@ export function PdfReport({
               <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
                 {i18n.t("report.earWash.post")}
               </Text>
+              {config.show_diagram && (postRightDiagramUrl || postLeftDiagramUrl) && (
+                <DiagramsRow
+                  rightData={report.post_right_ear}
+                  leftData={report.post_left_ear}
+                  rightDiagramUrl={postRightDiagramUrl}
+                  leftDiagramUrl={postLeftDiagramUrl}
+                />
+              )}
               <View style={styles.earContainer}>
                 <EarSection
                   title={i18n.t("pdf.labels.rightEar")}
@@ -478,9 +527,8 @@ export function PdfReport({
                   data={report.post_right_ear}
                   primaryImage={postRightEarPrimary ?? null}
                   secondaryImages={postRightEarSecondary ?? []}
-                  diagramUrl={postRightDiagramUrl}
                   config={config}
-                  contentOrder={earContentOrder}
+                  contentOrder={nonDiagramOrder}
                   reportCategories={report.findings_categories}
                 />
                 <EarSection
@@ -489,46 +537,54 @@ export function PdfReport({
                   data={report.post_left_ear}
                   primaryImage={postLeftEarPrimary ?? null}
                   secondaryImages={postLeftEarSecondary ?? []}
-                  diagramUrl={postLeftDiagramUrl}
                   config={config}
-                  contentOrder={earContentOrder}
+                  contentOrder={nonDiagramOrder}
                   reportCategories={report.findings_categories}
                 />
               </View>
             </View>
           </View>
-        ) : (
-          <View key="ear_content" style={styles.section}>
-            <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
-              {i18n.t("pdf.sections.findings")}
-            </Text>
-            <View style={styles.earContainer}>
-              <EarSection
-                title={i18n.t("pdf.labels.rightEar")}
-                side="right"
-                data={report.right_ear}
-                primaryImage={rightEarPrimary}
-                secondaryImages={rightEarSecondary}
-                diagramUrl={rightDiagramUrl}
-                config={config}
-                contentOrder={earContentOrder}
-                reportCategories={report.findings_categories}
-              />
-              <EarSection
-                title={i18n.t("pdf.labels.leftEar")}
-                side="left"
-                data={report.left_ear}
-                primaryImage={leftEarPrimary}
-                secondaryImages={leftEarSecondary}
-                diagramUrl={leftDiagramUrl}
-                config={config}
-                contentOrder={earContentOrder}
-                reportCategories={report.findings_categories}
-              />
-            </View>
+        );
+      }
+
+      return (
+        <View key="ear_content" style={styles.section}>
+          <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
+            {i18n.t("pdf.sections.findings")}
+          </Text>
+          {showDiagrams && (
+            <DiagramsRow
+              rightData={report.right_ear}
+              leftData={report.left_ear}
+              rightDiagramUrl={rightDiagramUrl}
+              leftDiagramUrl={leftDiagramUrl}
+            />
+          )}
+          <View style={styles.earContainer}>
+            <EarSection
+              title={i18n.t("pdf.labels.rightEar")}
+              side="right"
+              data={report.right_ear}
+              primaryImage={rightEarPrimary}
+              secondaryImages={rightEarSecondary}
+              config={config}
+              contentOrder={nonDiagramOrder}
+              reportCategories={report.findings_categories}
+            />
+            <EarSection
+              title={i18n.t("pdf.labels.leftEar")}
+              side="left"
+              data={report.left_ear}
+              primaryImage={leftEarPrimary}
+              secondaryImages={leftEarSecondary}
+              config={config}
+              contentOrder={nonDiagramOrder}
+              reportCategories={report.findings_categories}
+            />
           </View>
-        )
-      ) : null,
+        </View>
+      );
+    },
     conclusion: () =>
       config.show_conclusion && report.conclusion ? (
         <View key="conclusion" style={styles.section}>
