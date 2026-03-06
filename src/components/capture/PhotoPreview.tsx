@@ -2,22 +2,53 @@ import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { compositeAnnotations } from "@/lib/annotation-renderer";
-import type { CropData } from "@/types/annotation";
+import type { Annotation, FrameShape, TympanicReference, ViewportData, ImageAdjustments } from "@/types/annotation";
+import type { EarSide } from "@/types/image";
 
 interface PhotoPreviewProps {
   loadImage: () => Promise<string>;
   rotation: number;
-  crop?: CropData | null;
+  annotations?: Annotation[];
+  frameShape?: FrameShape | null;
   background?: "black" | "white" | "transparent";
+  side?: EarSide;
+  tympanicRef?: TympanicReference | null;
+  viewport?: ViewportData | null;
+  adjustments?: ImageAdjustments | null;
   onClose: () => void;
   onAnnotate?: () => void;
+}
+
+function hasEdits(
+  rotation: number,
+  annotations?: Annotation[],
+  frameShape?: FrameShape | null,
+  tympanicRef?: TympanicReference | null,
+  viewport?: ViewportData | null,
+  adjustments?: ImageAdjustments | null,
+): boolean {
+  return rotation !== 0
+    || (annotations != null && annotations.length > 0)
+    || !!frameShape
+    || !!tympanicRef?.showOverlay
+    || !!(viewport && (viewport.zoom !== 1 || viewport.panX !== 0 || viewport.panY !== 0))
+    || !!(adjustments && (
+      adjustments.brightness !== 100 || adjustments.contrast !== 100
+      || adjustments.saturate !== 100 || adjustments.temperature !== 0
+      || adjustments.clahe || adjustments.invert || adjustments.sharpen > 0
+    ));
 }
 
 export function PhotoPreview({
   loadImage,
   rotation,
-  crop,
+  annotations,
+  frameShape,
   background,
+  side,
+  tympanicRef,
+  viewport,
+  adjustments,
   onClose,
 }: PhotoPreviewProps) {
   const [url, setUrl] = useState("");
@@ -26,8 +57,8 @@ export function PhotoPreview({
     let cancelled = false;
     loadImage().then(async (rawUrl) => {
       if (cancelled) return;
-      if (crop || rotation !== 0) {
-        const processed = await compositeAnnotations(rawUrl, [], rotation, null, crop, background);
+      if (hasEdits(rotation, annotations, frameShape, tympanicRef, viewport, adjustments)) {
+        const processed = await compositeAnnotations(rawUrl, annotations ?? [], rotation, null, frameShape, background, tympanicRef, side, viewport, adjustments);
         if (!cancelled) setUrl(processed);
       } else {
         if (!cancelled) setUrl(rawUrl);

@@ -17,7 +17,7 @@ export function useAnnotation({ annotations, onChange }: UseAnnotationProps) {
 
   const addAnnotation = useCallback(
     (x: number, y: number, text?: string) => {
-      if (!activeTool || activeTool === "eraser" || activeTool === "crop-rect" || activeTool === "crop-circle" || activeTool === "rotate") return;
+      if (!activeTool || activeTool === "eraser" || activeTool === "rotate" || activeTool === "tympanic-map" || activeTool === "pan" || activeTool === "pointer") return;
       const annotation: Annotation = {
         id: uuidv4(),
         type: activeTool,

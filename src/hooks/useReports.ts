@@ -104,6 +104,15 @@ export function useReports() {
     []
   );
 
+  const flushSave = useCallback(async () => {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    if (pendingReport.current) {
+      const updated = { ...pendingReport.current, updated_at: new Date().toISOString() };
+      pendingReport.current = null;
+      await invoke("save_report", { report: updated });
+    }
+  }, []);
+
   const updateReport = useCallback(
     (updater: (prev: Report) => Report) => {
       setReport((prev) => {
@@ -134,7 +143,7 @@ export function useReports() {
     };
   }, []);
 
-  return { report, setReport, createSession, saveReport, loadReport, updateReport, saving };
+  return { report, setReport, createSession, saveReport, loadReport, updateReport, flushSave, saving };
 }
 
 export function useSessionList() {

@@ -1,48 +1,127 @@
-import { useRef, useEffect, useCallback, useState } from "react";
-import { X, Check } from "lucide-react";
+import { useRef, useEffect, useCallback, useState, useMemo } from "react";
+import { X, Circle, Square, RectangleHorizontal, Trash2, Type, Move, ArrowUp, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AnnotationToolbar } from "./AnnotationToolbar";
 import { renderAnnotation } from "./SymbolStamps";
+import { renderTympanicOverlay, hitTestTympanicHandle } from "./TympanicOverlay";
+import type { TympanicHandleId } from "./TympanicOverlay";
 import { useAnnotation } from "@/hooks/useAnnotation";
-import type { Annotation, CropData } from "@/types/annotation";
+import type { Annotation, FrameShape, TympanicReference, ViewportData, ImageAdjustments } from "@/types/annotation";
 import { AnnotationType } from "@/types/annotation";
+import type { EarSide } from "@/types/image";
 import { cn } from "@/lib/utils";
+import { applyPixelFilters } from "@/lib/image-filters";
+import { useTranslation } from "react-i18next";
+
+const DEFAULT_ADJUSTMENTS: ImageAdjustments = {
+  brightness: 100,
+  contrast: 100,
+  saturate: 100,
+  temperature: 0,
+  clahe: false,
+  claheClipLimit: 2,
+  invert: false,
+  sharpen: 0,
+};
+
+const DEFAULT_VIEWPORT: ViewportData = {
+  zoom: 1,
+  panX: 0,
+  panY: 0,
+};
 
 interface ImageAnnotatorProps {
   imageUrl: string;
   annotations: Annotation[];
   rotation: number;
-  crop?: CropData | null;
+  frameShape?: FrameShape | null;
   background?: "black" | "white" | "transparent";
-  onSave: (annotations: Annotation[], rotation: number, crop?: CropData | null, background?: "black" | "white" | "transparent") => void;
-  onClose: () => void;
-}
-
-interface CropRegion {
-  start: { x: number; y: number };
-  end: { x: number; y: number };
-  type: "crop-rect" | "crop-circle";
+  side?: EarSide;
+  tympanicRef?: TympanicReference | null;
+  viewport?: ViewportData | null;
+  adjustments?: ImageAdjustments | null;
+  onSave: (annotations: Annotation[], rotation: number, frameShape?: FrameShape | null, background?: "black" | "white" | "transparent", tympanicRef?: TympanicReference | null, viewport?: ViewportData | null, adjustments?: ImageAdjustments | null) => void;
 }
 
 interface HistoryEntry {
   annotations: Annotation[];
   rotation: number;
   pivot: { x: number; y: number } | null;
-  crop: CropData | null;
+  frameShape: FrameShape | null;
+  tympanicRef: TympanicReference | null;
+  viewport: ViewportData;
+  adjustments: ImageAdjustments;
 }
+
+function computeRotatedBounds(
+  w: number, h: number, rot: number,
+  px: number, py: number,
+): { lw: number; lh: number; offsetX: number; offsetY: number } {
+  if (rot === 0) return { lw: w, lh: h, offsetX: 0, offsetY: 0 };
+  const rad = (rot * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const corners = [[0, 0], [w, 0], [w, h], [0, h]].map(([x, y]) => ({
+    x: px + (x - px) * cos - (y - py) * sin,
+    y: py + (x - px) * sin + (y - py) * cos,
+  }));
+  const xs = corners.map(c => c.x);
+  const ys = corners.map(c => c.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return {
+    lw: Math.ceil(Math.max(...xs) - minX),
+    lh: Math.ceil(Math.max(...ys) - minY),
+    offsetX: -minX,
+    offsetY: -minY,
+  };
+}
+
+const TYMPANIC_STEP_KEYS = [
+  "editor.tpiUmbo",
+  "editor.tpiShortProcess",
+  "editor.tpiAnnulus1",
+  "editor.tpiAnnulus2",
+  "editor.tpiAnnulus3",
+  "editor.tpiAnnulus4",
+  "editor.tpiAnnulus5",
+];
 
 export function ImageAnnotator({
   imageUrl,
   annotations: initialAnnotations,
   rotation: initialRotation,
-  crop: initialCrop,
+  frameShape: initialFrameShape,
   background: initialBackground,
+  side,
+  tympanicRef: initialTympanicRef,
+  viewport: initialViewport,
+  adjustments: initialAdjustments,
   onSave,
-  onClose,
 }: ImageAnnotatorProps) {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  // Viewport (zoom & pan)
+  const [viewport, setViewport] = useState<ViewportData>({ ...DEFAULT_VIEWPORT });
+  const viewportInitializedRef = useRef(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const [frameSize, setFrameSize] = useState<{ w: number; h: number } | null>(null);
+
+  // Image adjustments
+  const [adjustments, setAdjustments] = useState<ImageAdjustments>(initialAdjustments ?? { ...DEFAULT_ADJUSTMENTS });
+  const [showAdjustments, setShowAdjustments] = useState(false);
+
+  // Frame shape
+  const [frameShape, setFrameShape] = useState<FrameShape | null>(initialFrameShape ?? null);
+  const [frameBg, setFrameBg] = useState<"black" | "white" | "transparent">(
+    initialBackground ?? "black"
+  );
 
   const {
     activeTool,
@@ -60,35 +139,29 @@ export function ImageAnnotator({
 
   const [localAnnotations, setLocalAnnotations] = useState(initialAnnotations);
 
-  // Saved crop (non-destructive)
-  const [savedCrop, setSavedCrop] = useState<CropData | null>(initialCrop ?? null);
-
-  // Crop state (in-progress selection)
-  const [cropStart, setCropStart] = useState<{ x: number; y: number } | null>(null);
-  const [cropEnd, setCropEnd] = useState<{ x: number; y: number } | null>(null);
-  const [cropPending, setCropPending] = useState<CropRegion | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-
-  // Circular crop background
-  const [cropBg, setCropBg] = useState<"black" | "white" | "transparent">(
-    initialBackground ?? initialCrop?.background ?? "black"
-  );
-
   // Pivot drag state
   const [isDraggingPivot, setIsDraggingPivot] = useState(false);
+
+  // Tympanic reference state
+  const [tympanicRef, setTympanicRef] = useState<TympanicReference | null>(initialTympanicRef ?? null);
+  const [tympanicStep, setTympanicStep] = useState<number | null>(null);
+  const [draggingTympanicHandle, setDraggingTympanicHandle] = useState<TympanicHandleId | null>(null);
+
+  // Annotation selection & drag state (pointer tool)
+  const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
+  const [draggingAnnotation, setDraggingAnnotation] = useState<string | null>(null);
+  const dragAnnotationStartRef = useRef<{ x: number; y: number } | null>(null);
+  const didDragRef = useRef(false);
+
+  // Pending text input (replaces native prompt)
+  const [pendingText, setPendingText] = useState<{ x: number; y: number } | null>(null);
+  const [pendingTextValue, setPendingTextValue] = useState("");
+  const pendingTextRef = useRef<HTMLInputElement>(null);
 
   // Interactive rotation drag state
   const [isRotating, setIsRotating] = useState(false);
   const rotateStartAngleRef = useRef(0);
   const rotationBeforeDragRef = useRef(0);
-
-  // Resize handle drag state
-  type HandleType = "tl" | "tc" | "tr" | "ml" | "mr" | "bl" | "bc" | "br";
-  const [draggingHandle, setDraggingHandle] = useState<HandleType | null>(null);
-
-  // Crop region drag (move) state
-  const [isDraggingCrop, setIsDraggingCrop] = useState(false);
-  const cropDragOriginRef = useRef<{ x: number; y: number } | null>(null);
 
   // Undo history
   const historyRef = useRef<HistoryEntry[]>([]);
@@ -99,13 +172,16 @@ export function ImageAnnotator({
       annotations: [...localAnnotations],
       rotation,
       pivot: pivot ? { ...pivot } : null,
-      crop: savedCrop ? { ...savedCrop } : null,
+      frameShape,
+      tympanicRef: tympanicRef ? JSON.parse(JSON.stringify(tympanicRef)) : null,
+      viewport: { ...viewport },
+      adjustments: { ...adjustments },
     });
     if (historyRef.current.length > 50) {
       historyRef.current.shift();
     }
     setCanUndo(true);
-  }, [localAnnotations, rotation, pivot, savedCrop]);
+  }, [localAnnotations, rotation, pivot, frameShape, tympanicRef, viewport, adjustments]);
 
   const undo = useCallback(() => {
     const entry = historyRef.current.pop();
@@ -113,15 +189,17 @@ export function ImageAnnotator({
     setLocalAnnotations(entry.annotations);
     setRotation(entry.rotation);
     setPivot(entry.pivot);
-    setSavedCrop(entry.crop);
+    setFrameShape(entry.frameShape);
+    setTympanicRef(entry.tympanicRef);
+    setViewport(entry.viewport);
+    setAdjustments(entry.adjustments);
+    setTympanicStep(null);
     setCanUndo(historyRef.current.length > 0);
   }, [setRotation, setPivot]);
 
-  const isCropTool = activeTool === "crop-rect" || activeTool === "crop-circle";
-
   const handleAddAnnotation = useCallback(
     (x: number, y: number, text?: string) => {
-      if (!activeTool || activeTool === "eraser" || activeTool === "crop-rect" || activeTool === "crop-circle" || activeTool === "rotate") return;
+      if (!activeTool || activeTool === "eraser" || activeTool === "rotate" || activeTool === "tympanic-map" || activeTool === "pan" || activeTool === "pointer") return;
       pushHistory();
       const annotation: Annotation = {
         id: crypto.randomUUID(),
@@ -170,52 +248,84 @@ export function ImageAnnotator({
     img.src = imageUrl;
   }, [imageUrl]);
 
-  // Helper to get normalized coords from mouse event
-  // Returns canvas-space coords (for crop/rotate UI interactions)
-  const getCanvasCoords = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    return {
-      x: ((e.clientX - rect.left) * scaleX) / canvas.width,
-      y: ((e.clientY - rect.top) * scaleY) / canvas.height,
+  // Keyboard handlers for space (pan mode)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !e.repeat) {
+        // Don't hijack space when typing in an input/textarea
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        e.preventDefault();
+        setSpaceHeld(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        setSpaceHeld(false);
+        setIsPanning(false);
+        panStartRef.current = null;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
     };
   }, []);
 
-  // Get coords in rotated image space (for annotations that follow rotation)
-  const getImageCoords = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const cx = (e.clientX - rect.left) * scaleX;
-    const cy = (e.clientY - rect.top) * scaleY;
+  // Wheel handler for zoom
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+      setViewport((prev) => {
+        const newZoom = Math.min(Math.max(prev.zoom * zoomFactor, 1), 10);
+        const rect = container.getBoundingClientRect();
+        const mx = e.clientX - rect.left - rect.width / 2;
+        const my = e.clientY - rect.top - rect.height / 2;
+        const scale = newZoom / prev.zoom;
+        return {
+          zoom: newZoom,
+          panX: mx - scale * (mx - prev.panX),
+          panY: my - scale * (my - prev.panY),
+        };
+      });
+    };
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheel);
+  }, []);
 
-    // Apply inverse rotation around pivot
-    const px = pivot ? pivot.x * canvas.width : canvas.width / 2;
-    const py = pivot ? pivot.y * canvas.height : canvas.height / 2;
-    const rad = -(rotation * Math.PI) / 180;
-    const dx = cx - px;
-    const dy = cy - py;
-    const ix = px + dx * Math.cos(rad) - dy * Math.sin(rad);
-    const iy = py + dx * Math.sin(rad) + dy * Math.cos(rad);
+  // Helper to get normalized coords in image space from mouse event
+  const getCanvasCoords = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const img = imageRef.current;
+    if (!canvas || !img) return null;
+    const rect = canvas.getBoundingClientRect();
+
+    // Convert to image-normalized coords (accounting for expansion offset)
+    const pivotX = pivot ? pivot.x * img.width : img.width / 2;
+    const pivotY = pivot ? pivot.y * img.height : img.height / 2;
+    const { lw, lh, offsetX, offsetY } = computeRotatedBounds(img.width, img.height, rotation, pivotX, pivotY);
+
+    const logicalX = (e.clientX - rect.left) * lw / rect.width;
+    const logicalY = (e.clientY - rect.top) * lh / rect.height;
 
     return {
-      x: ix / canvas.width,
-      y: iy / canvas.height,
+      x: (logicalX - offsetX) / img.width,
+      y: (logicalY - offsetY) / img.height,
     };
-  }, [pivot, rotation]);
+  }, [rotation, pivot]);
 
-  // Check if mouse is near pivot (null pivot = center)
+  // Check if mouse is near pivot
   const isNearPivot = useCallback((x: number, y: number) => {
     const px = pivot ? pivot.x : 0.5;
     const py = pivot ? pivot.y : 0.5;
-    const threshold = 0.025;
+    const threshold = 0.025 / viewport.zoom;
     return Math.abs(x - px) < threshold && Math.abs(y - py) < threshold;
-  }, [pivot]);
+  }, [pivot, viewport.zoom]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -225,238 +335,84 @@ export function ImageAnnotator({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    if (savedCrop) {
-      // Draw with crop applied: first render rotated image, then extract crop region
-      const tmpCanvas = document.createElement("canvas");
-      tmpCanvas.width = img.width;
-      tmpCanvas.height = img.height;
-      const tmpCtx = tmpCanvas.getContext("2d")!;
+    const renderScale = Math.min(viewport.zoom, 4);
 
-      if (cropBg !== "transparent") {
-        tmpCtx.fillStyle = cropBg === "black" ? "#000000" : "#ffffff";
-        tmpCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
-      }
+    // Expand canvas to fit rotated image
+    const imgW = img.width;
+    const imgH = img.height;
+    const pivotX = pivot ? pivot.x * imgW : imgW / 2;
+    const pivotY = pivot ? pivot.y * imgH : imgH / 2;
+    const { lw, lh, offsetX, offsetY } = computeRotatedBounds(imgW, imgH, rotation, pivotX, pivotY);
 
-      const pivotX = pivot ? pivot.x * tmpCanvas.width : tmpCanvas.width / 2;
-      const pivotY = pivot ? pivot.y * tmpCanvas.height : tmpCanvas.height / 2;
-      tmpCtx.save();
-      tmpCtx.translate(pivotX, pivotY);
-      tmpCtx.rotate((rotation * Math.PI) / 180);
-      tmpCtx.drawImage(img, -pivotX, -pivotY);
-      tmpCtx.restore();
+    canvas.width = lw * renderScale;
+    canvas.height = lh * renderScale;
+    ctx.scale(renderScale, renderScale);
+    ctx.clearRect(0, 0, lw, lh);
 
-      const sx = Math.min(savedCrop.start.x, savedCrop.end.x) * img.width;
-      const sy = Math.min(savedCrop.start.y, savedCrop.end.y) * img.height;
-      const sw = Math.abs(savedCrop.end.x - savedCrop.start.x) * img.width;
-      const sh = Math.abs(savedCrop.end.y - savedCrop.start.y) * img.height;
+    // Draw rotated image in expanded canvas
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.translate(pivotX, pivotY);
+    ctx.rotate((rotation * Math.PI) / 180);
+    ctx.translate(-pivotX, -pivotY);
+    ctx.drawImage(img, 0, 0);
+    ctx.restore();
 
-      if (savedCrop.type === "crop-circle") {
-        const side = Math.min(sw, sh);
-        const cx = sx + sw / 2;
-        const cy = sy + sh / 2;
-
-        canvas.width = side;
-        canvas.height = side;
-        ctx.clearRect(0, 0, side, side);
-
-        const bg = savedCrop.background || "black";
-        if (bg !== "transparent") {
-          ctx.fillStyle = bg === "black" ? "#000000" : "#ffffff";
-          ctx.fillRect(0, 0, side, side);
-        }
-
+    // Annotations and overlays in image space (with offset, not rotated)
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    localAnnotations.forEach((a) => {
+      renderAnnotation(ctx, a, imgW, imgH);
+    });
+    if (tympanicRef && side) {
+      renderTympanicOverlay(ctx, tympanicRef, side, imgW, imgH);
+    }
+    // Selection highlight
+    if (selectedAnnotation) {
+      const sel = localAnnotations.find((a) => a.id === selectedAnnotation);
+      if (sel) {
+        const sx = sel.x * imgW;
+        const sy = sel.y * imgH;
+        const uiScale = imgW / ((frameSize?.w || imgW) * viewport.zoom);
+        const r = 14 * uiScale;
         ctx.save();
+        ctx.strokeStyle = "#00e5ff";
+        ctx.lineWidth = 2 * uiScale;
+        ctx.setLineDash([4 * uiScale, 3 * uiScale]);
         ctx.beginPath();
-        ctx.arc(side / 2, side / 2, side / 2, 0, Math.PI * 2);
-        ctx.clip();
-        ctx.drawImage(tmpCanvas, cx - side / 2, cy - side / 2, side, side, 0, 0, side, side);
-        ctx.restore();
-      } else {
-        canvas.width = sw;
-        canvas.height = sh;
-        ctx.clearRect(0, 0, sw, sh);
-        const bg = savedCrop.background || "black";
-        if (bg !== "transparent") {
-          ctx.fillStyle = bg === "black" ? "#000000" : "#ffffff";
-          ctx.fillRect(0, 0, sw, sh);
-        }
-        ctx.drawImage(tmpCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
-      }
-
-      // Annotations on cropped image
-      localAnnotations.forEach((a) => {
-        renderAnnotation(ctx, a, canvas.width, canvas.height);
-      });
-    } else {
-      // No crop — original behavior
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (rotation !== 0 && cropBg !== "transparent") {
-        ctx.fillStyle = cropBg === "black" ? "#000000" : "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-
-      const pivotX = pivot ? pivot.x * canvas.width : canvas.width / 2;
-      const pivotY = pivot ? pivot.y * canvas.height : canvas.height / 2;
-      ctx.save();
-      ctx.translate(pivotX, pivotY);
-      ctx.rotate((rotation * Math.PI) / 180);
-      ctx.translate(-pivotX, -pivotY);
-      // Draw image and annotations in the same rotated space
-      ctx.drawImage(img, 0, 0);
-      localAnnotations.forEach((a) => {
-        renderAnnotation(ctx, a, canvas.width, canvas.height);
-      });
-      ctx.restore();
-
-      // Draw crop overlay
-      if ((cropStart && cropEnd) || cropPending) {
-        const region = cropPending || {
-          start: cropStart!,
-          end: cropEnd!,
-          type: activeTool as "crop-rect" | "crop-circle",
-        };
-
-        const sx = region.start.x * canvas.width;
-        const sy = region.start.y * canvas.height;
-        const ex = region.end.x * canvas.width;
-        const ey = region.end.y * canvas.height;
-
-        // For circle: compute square in pixel space
-        let drawSx = sx, drawSy = sy, drawEx = ex, drawEy = ey;
-        if (region.type === "crop-circle") {
-          const midPx = (sx + ex) / 2;
-          const midPy = (sy + ey) / 2;
-          const rPx = Math.abs(ex - sx) / 2;
-          const rPy = Math.abs(ey - sy) / 2;
-          const r = Math.min(rPx, rPy);
-          drawSx = midPx - r;
-          drawSy = midPy - r;
-          drawEx = midPx + r;
-          drawEy = midPy + r;
-        }
-
-        // Dark overlay
-        ctx.save();
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.globalCompositeOperation = "destination-out";
-        if (region.type === "crop-rect") {
-          const rx = Math.min(drawSx, drawEx);
-          const ry = Math.min(drawSy, drawEy);
-          const rw = Math.abs(drawEx - drawSx);
-          const rh = Math.abs(drawEy - drawSy);
-          ctx.fillRect(rx, ry, rw, rh);
-        } else {
-          const cxPx = (drawSx + drawEx) / 2;
-          const cyPx = (drawSy + drawEy) / 2;
-          const r = Math.abs(drawEx - drawSx) / 2;
-          ctx.beginPath();
-          ctx.arc(cxPx, cyPx, r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
-
-        // Draw border around selection
-        ctx.save();
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 4]);
-        if (region.type === "crop-rect") {
-          const rx = Math.min(drawSx, drawEx);
-          const ry = Math.min(drawSy, drawEy);
-          const rw = Math.abs(drawEx - drawSx);
-          const rh = Math.abs(drawEy - drawSy);
-          ctx.strokeRect(rx, ry, rw, rh);
-        } else {
-          const cxPx = (drawSx + drawEx) / 2;
-          const cyPx = (drawSy + drawEy) / 2;
-          const r = Math.abs(drawEx - drawSx) / 2;
-          ctx.beginPath();
-          ctx.arc(cxPx, cyPx, r, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-
-      // Draw resize handles on crop region
-      if (cropPending) {
-        const region = cropPending;
-        let bsx: number, bsy: number, bsw: number, bsh: number;
-        if (region.type === "crop-circle") {
-          const sx2 = region.start.x * canvas.width;
-          const sy2 = region.start.y * canvas.height;
-          const ex2 = region.end.x * canvas.width;
-          const ey2 = region.end.y * canvas.height;
-          const midPx = (sx2 + ex2) / 2;
-          const midPy = (sy2 + ey2) / 2;
-          const rPx = Math.abs(ex2 - sx2) / 2;
-          const rPy = Math.abs(ey2 - sy2) / 2;
-          const r = Math.min(rPx, rPy);
-          bsx = midPx - r;
-          bsy = midPy - r;
-          bsw = r * 2;
-          bsh = r * 2;
-        } else {
-          bsx = Math.min(region.start.x, region.end.x) * canvas.width;
-          bsy = Math.min(region.start.y, region.end.y) * canvas.height;
-          bsw = Math.abs(region.end.x - region.start.x) * canvas.width;
-          bsh = Math.abs(region.end.y - region.start.y) * canvas.height;
-        }
-
-        const handles = [
-          { x: bsx, y: bsy },
-          { x: bsx + bsw / 2, y: bsy },
-          { x: bsx + bsw, y: bsy },
-          { x: bsx, y: bsy + bsh / 2 },
-          { x: bsx + bsw, y: bsy + bsh / 2 },
-          { x: bsx, y: bsy + bsh },
-          { x: bsx + bsw / 2, y: bsy + bsh },
-          { x: bsx + bsw, y: bsy + bsh },
-        ];
-
-        const handleSize = 6;
-        ctx.save();
-        handles.forEach((h) => {
-          ctx.fillStyle = "#ffffff";
-          ctx.strokeStyle = "#0066ff";
-          ctx.lineWidth = 2;
-          ctx.fillRect(h.x - handleSize, h.y - handleSize, handleSize * 2, handleSize * 2);
-          ctx.strokeRect(h.x - handleSize, h.y - handleSize, handleSize * 2, handleSize * 2);
-        });
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.stroke();
         ctx.restore();
       }
     }
+    ctx.restore();
 
-    // Draw rotation overlay when rotate tool is active (no crop)
-    if (activeTool === "rotate" && !savedCrop) {
-      const pivotX = pivot ? pivot.x * canvas.width : canvas.width / 2;
-      const pivotY = pivot ? pivot.y * canvas.height : canvas.height / 2;
+    // Draw rotation overlay when rotate tool is active
+    if (activeTool === "rotate") {
+      const { offsetX: rotOffX, offsetY: rotOffY } = computeRotatedBounds(imgW, imgH, rotation, pivotX, pivotY);
       const rad = (rotation * Math.PI) / 180;
+      const uiScale = imgW / ((frameSize?.w || imgW) * viewport.zoom);
 
       // Compute rotated bounding box corners
       const corners = [
         { x: 0, y: 0 },
-        { x: canvas.width, y: 0 },
-        { x: canvas.width, y: canvas.height },
-        { x: 0, y: canvas.height },
+        { x: imgW, y: 0 },
+        { x: imgW, y: imgH },
+        { x: 0, y: imgH },
       ].map((c) => {
         const dx = c.x - pivotX;
         const dy = c.y - pivotY;
         return {
-          x: pivotX + dx * Math.cos(rad) - dy * Math.sin(rad),
-          y: pivotY + dx * Math.sin(rad) + dy * Math.cos(rad),
+          x: rotOffX + pivotX + dx * Math.cos(rad) - dy * Math.sin(rad),
+          y: rotOffY + pivotY + dx * Math.sin(rad) + dy * Math.cos(rad),
         };
       });
 
       // Dashed bounding box
       ctx.save();
       ctx.strokeStyle = "#00e5ff";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([8, 4]);
+      ctx.lineWidth = 2 * uiScale;
+      ctx.setLineDash([8 * uiScale, 4 * uiScale]);
       ctx.beginPath();
       ctx.moveTo(corners[0].x, corners[0].y);
       for (let i = 1; i < 4; i++) {
@@ -467,260 +423,182 @@ export function ImageAnnotator({
       ctx.setLineDash([]);
 
       // Corner handles
-      const handleSize = 5;
+      const handleSize = 5 * uiScale;
       corners.forEach((c) => {
         ctx.fillStyle = "#ffffff";
         ctx.strokeStyle = "#00e5ff";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 * uiScale;
         ctx.fillRect(c.x - handleSize, c.y - handleSize, handleSize * 2, handleSize * 2);
         ctx.strokeRect(c.x - handleSize, c.y - handleSize, handleSize * 2, handleSize * 2);
       });
       ctx.restore();
 
-      // Pivot indicator (crosshair + circle)
+      // Pivot indicator
+      const pvX = rotOffX + pivotX;
+      const pvY = rotOffY + pivotY;
       ctx.save();
       ctx.strokeStyle = "#00e5ff";
-      ctx.lineWidth = 2;
-      const pSize = 12;
-      // Crosshair +
+      ctx.lineWidth = 2 * uiScale;
+      const pSize = 12 * uiScale;
       ctx.beginPath();
-      ctx.moveTo(pivotX - pSize, pivotY);
-      ctx.lineTo(pivotX + pSize, pivotY);
-      ctx.moveTo(pivotX, pivotY - pSize);
-      ctx.lineTo(pivotX, pivotY + pSize);
+      ctx.moveTo(pvX - pSize, pvY);
+      ctx.lineTo(pvX + pSize, pvY);
+      ctx.moveTo(pvX, pvY - pSize);
+      ctx.lineTo(pvX, pvY + pSize);
       ctx.stroke();
-      // Circle
       ctx.beginPath();
-      ctx.arc(pivotX, pivotY, 8, 0, Math.PI * 2);
+      ctx.arc(pvX, pvY, 8 * uiScale, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
 
       // Angle overlay
       if (rotation !== 0) {
+        const fontSize = Math.round(14 * uiScale);
         const angleText = `${rotation.toFixed(1)}°`;
         ctx.save();
-        ctx.font = "bold 14px sans-serif";
+        ctx.font = `bold ${fontSize}px sans-serif`;
         const metrics = ctx.measureText(angleText);
-        const tw = metrics.width + 12;
-        const th = 22;
-        const tx = canvas.width / 2 - tw / 2;
-        const ty = 12;
+        const tw = metrics.width + 12 * uiScale;
+        const th = 22 * uiScale;
+        const vcx = canvas.width / (2 * renderScale);
+        const vcy = 12 * uiScale + 12 * uiScale;
+        const tx = vcx - tw / 2;
+        const ty = Math.max(4 * uiScale, vcy - th);
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
         ctx.beginPath();
-        ctx.roundRect(tx, ty, tw, th, 4);
+        ctx.roundRect(tx, ty, tw, th, 4 * uiScale);
         ctx.fill();
         ctx.fillStyle = "#ffffff";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(angleText, canvas.width / 2, ty + th / 2);
+        ctx.fillText(angleText, vcx, ty + th / 2);
         ctx.restore();
       }
     }
-  }, [rotation, localAnnotations, loaded, cropStart, cropEnd, cropPending, activeTool, pivot, savedCrop, cropBg]);
+
+    // Apply pixel-level filters
+    applyPixelFilters(ctx, canvas.width, canvas.height, adjustments);
+  }, [rotation, localAnnotations, loaded, activeTool, pivot, tympanicRef, side, viewport.zoom, viewport.panX, viewport.panY, adjustments, frameSize, selectedAnnotation]);
 
   useEffect(() => {
     draw();
   }, [draw]);
 
-  // Apply crop — non-destructive: saves params instead of replacing image
-  const applyCrop = useCallback(() => {
-    if (!cropPending || !imageRef.current) return;
-    pushHistory();
+  // Compute frame size based on image dimensions and available container space
+  useEffect(() => {
+    if (!loaded || !imageRef.current || !containerRef.current) return;
+    const measure = () => {
+      const img = imageRef.current;
+      const container = containerRef.current;
+      if (!img || !container) return;
+      const rect = container.getBoundingClientRect();
+      const availW = rect.width - 32;
+      const availH = rect.height - 32;
 
-    const img = imageRef.current;
-    const { start, end, type } = cropPending;
+      const contentW = img.width;
+      const contentH = img.height;
 
-    // For circle: recalculate to make square in pixel space
-    if (type === "crop-circle") {
-      const sx = Math.min(start.x, end.x) * img.width;
-      const sy = Math.min(start.y, end.y) * img.height;
-      const sw = Math.abs(end.x - start.x) * img.width;
-      const sh = Math.abs(end.y - start.y) * img.height;
-      const side = Math.min(sw, sh);
-      const cx = sx + sw / 2;
-      const cy = sy + sh / 2;
-
-      // Convert back to normalized coords
-      const normStart = {
-        x: (cx - side / 2) / img.width,
-        y: (cy - side / 2) / img.height,
-      };
-      const normEnd = {
-        x: (cx + side / 2) / img.width,
-        y: (cy + side / 2) / img.height,
-      };
-
-      setSavedCrop({
-        start: normStart,
-        end: normEnd,
-        type: "crop-circle",
-        background: cropBg,
+      const aspect = contentW / contentH;
+      let displayW = contentW;
+      let displayH = contentH;
+      if (displayW > availW) {
+        displayW = availW;
+        displayH = displayW / aspect;
+      }
+      if (displayH > availH) {
+        displayH = availH;
+        displayW = displayH * aspect;
+      }
+      setFrameSize((prev) => {
+        if (prev && Math.abs(prev.w - displayW) < 1 && Math.abs(prev.h - displayH) < 1) return prev;
+        return { w: displayW, h: displayH };
       });
-    } else {
-      setSavedCrop({
-        start: { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y) },
-        end: { x: Math.max(start.x, end.x), y: Math.max(start.y, end.y) },
-        type: "crop-rect",
-        background: cropBg,
+    };
+    requestAnimationFrame(measure);
+  }, [loaded]);
+
+  // Canvas CSS size: expands with rotation while frameSize (printable area) stays fixed
+  const canvasDisplaySize = useMemo(() => {
+    const img = imageRef.current;
+    if (!frameSize || !img || !loaded) return { width: frameSize?.w, height: frameSize?.h };
+
+    const pvX = pivot ? pivot.x * img.width : img.width / 2;
+    const pvY = pivot ? pivot.y * img.height : img.height / 2;
+    const { lw, lh } = computeRotatedBounds(img.width, img.height, rotation, pvX, pvY);
+
+    const scale = frameSize.w / img.width;
+    return { width: lw * scale, height: lh * scale };
+  }, [frameSize, loaded, rotation, pivot]);
+
+  // Restore viewport from saved normalized values once frameSize is known
+  useEffect(() => {
+    if (frameSize && initialViewport && !viewportInitializedRef.current) {
+      viewportInitializedRef.current = true;
+      setViewport({
+        zoom: initialViewport.zoom,
+        panX: initialViewport.panX * frameSize.w,
+        panY: initialViewport.panY * frameSize.h,
       });
     }
+  }, [frameSize, initialViewport]);
 
-    // Clear annotations since coords would be invalid on cropped view
-    setLocalAnnotations([]);
-    setCropPending(null);
-    setCropStart(null);
-    setCropEnd(null);
-    setActiveTool(null);
-  }, [cropPending, cropBg, pushHistory, setActiveTool]);
-
-  const cancelCrop = useCallback(() => {
-    setCropPending(null);
-    setCropStart(null);
-    setCropEnd(null);
-  }, []);
-
-  // Detect which resize handle is under the cursor (normalized coords)
-  const getHandleAt = useCallback((x: number, y: number): HandleType | null => {
-    if (!cropPending) return null;
-    const region = cropPending;
-    const minX = Math.min(region.start.x, region.end.x);
-    const minY = Math.min(region.start.y, region.end.y);
-    const maxX = Math.max(region.start.x, region.end.x);
-    const maxY = Math.max(region.start.y, region.end.y);
-    const midX = (minX + maxX) / 2;
-    const midY = (minY + maxY) / 2;
-
-    const handles: { type: HandleType; hx: number; hy: number }[] = [
-      { type: "tl", hx: minX, hy: minY },
-      { type: "tc", hx: midX, hy: minY },
-      { type: "tr", hx: maxX, hy: minY },
-      { type: "ml", hx: minX, hy: midY },
-      { type: "mr", hx: maxX, hy: midY },
-      { type: "bl", hx: minX, hy: maxY },
-      { type: "bc", hx: midX, hy: maxY },
-      { type: "br", hx: maxX, hy: maxY },
-    ];
-
-    const threshold = 0.015;
-    for (const h of handles) {
-      if (Math.abs(x - h.hx) < threshold && Math.abs(y - h.hy) < threshold) {
-        return h.type;
+  // Hit-test: find annotation near coords
+  const hitTestAnnotation = useCallback((x: number, y: number): string | null => {
+    const threshold = 0.03;
+    for (let i = localAnnotations.length - 1; i >= 0; i--) {
+      const a = localAnnotations[i];
+      if (Math.abs(a.x - x) < threshold && Math.abs(a.y - y) < threshold) {
+        return a.id;
       }
     }
     return null;
-  }, [cropPending]);
-
-  // Check if point is inside crop region
-  const isInsideCrop = useCallback((x: number, y: number): boolean => {
-    if (!cropPending) return false;
-    const minX = Math.min(cropPending.start.x, cropPending.end.x);
-    const minY = Math.min(cropPending.start.y, cropPending.end.y);
-    const maxX = Math.max(cropPending.start.x, cropPending.end.x);
-    const maxY = Math.max(cropPending.start.y, cropPending.end.y);
-
-    if (cropPending.type === "crop-circle" && imageRef.current) {
-      const imgW = imageRef.current.width;
-      const imgH = imageRef.current.height;
-      const cxPx = ((minX + maxX) / 2) * imgW;
-      const cyPx = ((minY + maxY) / 2) * imgH;
-      const rPx = Math.min((maxX - minX) * imgW, (maxY - minY) * imgH) / 2;
-      const dx = x * imgW - cxPx;
-      const dy = y * imgH - cyPx;
-      return dx * dx + dy * dy <= rPx * rPx;
-    }
-
-    return x >= minX && x <= maxX && y >= minY && y <= maxY;
-  }, [cropPending]);
-
-  // Resize crop region by dragging a handle
-  const resizeCrop = useCallback((handle: HandleType, x: number, y: number) => {
-    if (!cropPending) return;
-
-    const region = cropPending;
-    let minX = Math.min(region.start.x, region.end.x);
-    let minY = Math.min(region.start.y, region.end.y);
-    let maxX = Math.max(region.start.x, region.end.x);
-    let maxY = Math.max(region.start.y, region.end.y);
-
-    const isCircle = region.type === "crop-circle";
-
-    // Update bounds based on handle
-    if (handle === "tl") { minX = x; minY = y; }
-    else if (handle === "tc") { minY = y; }
-    else if (handle === "tr") { maxX = x; minY = y; }
-    else if (handle === "ml") { minX = x; }
-    else if (handle === "mr") { maxX = x; }
-    else if (handle === "bl") { minX = x; maxY = y; }
-    else if (handle === "bc") { maxY = y; }
-    else if (handle === "br") { maxX = x; maxY = y; }
-
-    // For circle: force square in pixel space
-    if (isCircle && imageRef.current) {
-      const imgW = imageRef.current.width;
-      const imgH = imageRef.current.height;
-      const wPx = (maxX - minX) * imgW;
-      const hPx = (maxY - minY) * imgH;
-      const sizePx = Math.max(wPx, hPx);
-      const sizeNormW = sizePx / imgW;
-      const sizeNormH = sizePx / imgH;
-
-      if (handle === "tl") {
-        minX = maxX - sizeNormW;
-        minY = maxY - sizeNormH;
-      } else if (handle === "tc") {
-        const cx = (minX + maxX) / 2;
-        minX = cx - sizeNormW / 2;
-        maxX = cx + sizeNormW / 2;
-        minY = maxY - sizeNormH;
-      } else if (handle === "tr") {
-        maxX = minX + sizeNormW;
-        minY = maxY - sizeNormH;
-      } else if (handle === "ml") {
-        const cy = (minY + maxY) / 2;
-        minY = cy - sizeNormH / 2;
-        maxY = cy + sizeNormH / 2;
-        minX = maxX - sizeNormW;
-      } else if (handle === "mr") {
-        const cy = (minY + maxY) / 2;
-        minY = cy - sizeNormH / 2;
-        maxY = cy + sizeNormH / 2;
-        maxX = minX + sizeNormW;
-      } else if (handle === "bl") {
-        minX = maxX - sizeNormW;
-        maxY = minY + sizeNormH;
-      } else if (handle === "bc") {
-        const cx = (minX + maxX) / 2;
-        minX = cx - sizeNormW / 2;
-        maxX = cx + sizeNormW / 2;
-        maxY = minY + sizeNormH;
-      } else if (handle === "br") {
-        maxX = minX + sizeNormW;
-        maxY = minY + sizeNormH;
-      }
-    }
-
-    setCropPending({
-      start: { x: minX, y: minY },
-      end: { x: maxX, y: maxY },
-      type: region.type,
-    });
-  }, [cropPending]);
+  }, [localAnnotations]);
 
   // Mouse handlers
   function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+    // Pan with middle mouse button, space+left click, or pan tool
+    if (e.button === 1 || (e.button === 0 && (spaceHeld || activeTool === "pan"))) {
+      e.preventDefault();
+      setIsPanning(true);
+      panStartRef.current = { x: e.clientX, y: e.clientY, panX: viewport.panX, panY: viewport.panY };
+      return;
+    }
+
     const coords = getCanvasCoords(e);
     if (!coords) return;
 
+    // Tympanic handle drag
+    if (tympanicRef && tympanicStep === null && activeTool === "tympanic-map") {
+      const handle = hitTestTympanicHandle(coords.x, coords.y, tympanicRef, 0.025);
+      if (handle) {
+        pushHistory();
+        setDraggingTympanicHandle(handle);
+        return;
+      }
+    }
+
+    // Pointer tool: grab annotation to drag
+    if (activeTool === "pointer") {
+      const hitId = hitTestAnnotation(coords.x, coords.y);
+      if (hitId) {
+        pushHistory();
+        setDraggingAnnotation(hitId);
+        setSelectedAnnotation(hitId);
+        dragAnnotationStartRef.current = { x: coords.x, y: coords.y };
+        didDragRef.current = false;
+        return;
+      }
+      // Click on empty area deselects
+      setSelectedAnnotation(null);
+    }
+
     // Rotate tool interactions
-    if (activeTool === "rotate" && !savedCrop) {
-      // Check if clicking on pivot to drag it
+    if (activeTool === "rotate") {
       if (isNearPivot(coords.x, coords.y)) {
-        // Initialize pivot if null (was at center)
         if (!pivot) setPivot({ x: 0.5, y: 0.5 });
         setIsDraggingPivot(true);
         return;
       }
-      // Start rotation drag
       const canvas = canvasRef.current;
       if (canvas) {
         const pivotX = pivot ? pivot.x : 0.5;
@@ -734,47 +612,38 @@ export function ImageAnnotator({
       }
       return;
     }
-
-    // Handle resize or drag on pending crop
-    if (cropPending) {
-      const handle = getHandleAt(coords.x, coords.y);
-      if (handle) {
-        setDraggingHandle(handle);
-        return;
-      }
-      // If clicking inside the crop region, start dragging it
-      if (isInsideCrop(coords.x, coords.y)) {
-        cropDragOriginRef.current = { x: coords.x, y: coords.y };
-        setIsDraggingCrop(true);
-        return;
-      }
-    }
-
-    // Crop drag start
-    if (isCropTool && !cropPending && !savedCrop) {
-      setCropStart(coords);
-      setCropEnd(coords);
-      setIsDragging(true);
-      return;
-    }
   }
 
   function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
+    // Pan drag
+    if (isPanning && panStartRef.current) {
+      const start = panStartRef.current;
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      setViewport((prev) => ({
+        ...prev,
+        panX: start.panX + dx,
+        panY: start.panY + dy,
+      }));
+      return;
+    }
+
     const coords = getCanvasCoords(e);
     if (!coords) return;
 
-    // Update hover handle and inside-crop for cursor
-    if (cropPending && !isDragging && !draggingHandle && !isDraggingPivot && !isRotating && !isDraggingCrop) {
-      const handle = getHandleAt(coords.x, coords.y);
-      setHoverHandle(handle);
-      if (!handle) {
-        setHoverInsideCrop(isInsideCrop(coords.x, coords.y));
+    // Tympanic handle drag
+    if (draggingTympanicHandle && tympanicRef) {
+      if (draggingTympanicHandle === "umbo") {
+        setTympanicRef({ ...tympanicRef, umbo: { x: coords.x, y: coords.y } });
+      } else if (draggingTympanicHandle === "shortProcess") {
+        setTympanicRef({ ...tympanicRef, shortProcess: { x: coords.x, y: coords.y } });
       } else {
-        setHoverInsideCrop(false);
+        const idx = parseInt(draggingTympanicHandle.replace("annulus", ""));
+        const newAnnulus = [...tympanicRef.annulusPoints] as TympanicReference["annulusPoints"];
+        newAnnulus[idx] = { x: coords.x, y: coords.y };
+        setTympanicRef({ ...tympanicRef, annulusPoints: newAnnulus });
       }
-    } else if (!draggingHandle) {
-      setHoverHandle(null);
-      setHoverInsideCrop(false);
+      return;
     }
 
     // Interactive rotation drag
@@ -794,42 +663,33 @@ export function ImageAnnotator({
       return;
     }
 
-    if (isDraggingCrop && cropPending && cropDragOriginRef.current) {
-      const dx = coords.x - cropDragOriginRef.current.x;
-      const dy = coords.y - cropDragOriginRef.current.y;
-      setCropPending({
-        start: { x: cropPending.start.x + dx, y: cropPending.start.y + dy },
-        end: { x: cropPending.end.x + dx, y: cropPending.end.y + dy },
-        type: cropPending.type,
-      });
-      cropDragOriginRef.current = { x: coords.x, y: coords.y };
+    // Annotation drag
+    if (draggingAnnotation && dragAnnotationStartRef.current) {
+      const dx = coords.x - dragAnnotationStartRef.current.x;
+      const dy = coords.y - dragAnnotationStartRef.current.y;
+      didDragRef.current = true;
+      setLocalAnnotations((prev) =>
+        prev.map((a) =>
+          a.id === draggingAnnotation ? { ...a, x: a.x + dx, y: a.y + dy } : a
+        )
+      );
+      dragAnnotationStartRef.current = { x: coords.x, y: coords.y };
       return;
-    }
-
-    if (draggingHandle) {
-      resizeCrop(draggingHandle, coords.x, coords.y);
-      return;
-    }
-
-    if (isDragging && isCropTool) {
-      if (activeTool === "crop-circle" && cropStart && imageRef.current) {
-        // Force square in pixel space during drag
-        const imgW = imageRef.current.width;
-        const imgH = imageRef.current.height;
-        const dxPx = (coords.x - cropStart.x) * imgW;
-        const dyPx = (coords.y - cropStart.y) * imgH;
-        const sizePx = Math.max(Math.abs(dxPx), Math.abs(dyPx));
-        setCropEnd({
-          x: cropStart.x + (sizePx * Math.sign(dxPx || 1)) / imgW,
-          y: cropStart.y + (sizePx * Math.sign(dyPx || 1)) / imgH,
-        });
-      } else {
-        setCropEnd(coords);
-      }
     }
   }
 
-  function handleMouseUp(e: React.MouseEvent<HTMLCanvasElement>) {
+  function handleMouseUp() {
+    if (isPanning) {
+      setIsPanning(false);
+      panStartRef.current = null;
+      return;
+    }
+
+    if (draggingTympanicHandle) {
+      setDraggingTympanicHandle(null);
+      return;
+    }
+
     if (isRotating) {
       setIsRotating(false);
       return;
@@ -840,92 +700,204 @@ export function ImageAnnotator({
       return;
     }
 
-    if (isDraggingCrop) {
-      setIsDraggingCrop(false);
-      cropDragOriginRef.current = null;
-      return;
-    }
-
-    if (draggingHandle) {
-      setDraggingHandle(null);
-      return;
-    }
-
-    if (isDragging && isCropTool && cropStart && cropEnd) {
-      const coords = getCanvasCoords(e);
-      if (coords) {
-        let finalEnd = coords;
-        if (activeTool === "crop-circle" && imageRef.current) {
-          const imgW = imageRef.current.width;
-          const imgH = imageRef.current.height;
-          const dxPx = (coords.x - cropStart.x) * imgW;
-          const dyPx = (coords.y - cropStart.y) * imgH;
-          const sizePx = Math.max(Math.abs(dxPx), Math.abs(dyPx));
-          finalEnd = {
-            x: cropStart.x + (sizePx * Math.sign(dxPx || 1)) / imgW,
-            y: cropStart.y + (sizePx * Math.sign(dyPx || 1)) / imgH,
-          };
-        }
-        setCropEnd(finalEnd);
-        setCropPending({
-          start: cropStart,
-          end: finalEnd,
-          type: activeTool as "crop-rect" | "crop-circle",
-        });
-      }
-      setIsDragging(false);
+    if (draggingAnnotation) {
+      setDraggingAnnotation(null);
+      dragAnnotationStartRef.current = null;
+      // didDragRef is consumed in handleCanvasClick
       return;
     }
   }
 
-  function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
-    // Don't process clicks during crop/rotate modes or if already handled by mousedown
-    if (isCropTool || activeTool === "rotate" || cropPending) return;
+  // Tympanic map: place point for current step
+  const handleTympanicClick = useCallback((x: number, y: number) => {
+    if (tympanicStep === null) return;
 
-    // Use image-space coords so annotations follow rotation
-    const coords = savedCrop ? getCanvasCoords(e) : getImageCoords(e);
+    pushHistory();
+
+    if (tympanicStep === 0) {
+      setTympanicRef({
+        umbo: { x, y },
+        shortProcess: { x, y },
+        annulusPoints: [{ x, y }, { x, y }, { x, y }, { x, y }, { x, y }],
+        showOverlay: true,
+      });
+      setTympanicStep(1);
+    } else if (tympanicStep === 1 && tympanicRef) {
+      setTympanicRef({ ...tympanicRef, shortProcess: { x, y } });
+      setTympanicStep(2);
+    } else if (tympanicStep >= 2 && tympanicStep <= 6 && tympanicRef) {
+      const idx = tympanicStep - 2;
+      const newAnnulus = [...tympanicRef.annulusPoints] as TympanicReference["annulusPoints"];
+      newAnnulus[idx] = { x, y };
+      setTympanicRef({ ...tympanicRef, annulusPoints: newAnnulus });
+      if (tympanicStep < 6) {
+        setTympanicStep(tympanicStep + 1);
+      } else {
+        setTympanicStep(null);
+      }
+    }
+  }, [tympanicStep, tympanicRef, pushHistory]);
+
+  function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    // Skip click if we just finished dragging an annotation
+    if (didDragRef.current) {
+      didDragRef.current = false;
+      return;
+    }
+    if (activeTool === "rotate" || activeTool === "pan" || activeTool === "pointer") return;
+
+    // Tympanic map placement
+    if (activeTool === "tympanic-map" && tympanicStep !== null) {
+      const coords = getCanvasCoords(e);
+      if (coords) handleTympanicClick(coords.x, coords.y);
+      return;
+    }
+
+    const coords = getCanvasCoords(e);
     if (!coords) return;
 
     if (activeTool === "eraser") {
       handleRemoveAt(coords.x, coords.y);
     } else if (activeTool === AnnotationType.Text) {
-      const text = prompt("Texto:");
-      if (text) handleAddAnnotation(coords.x, coords.y, text);
+      setPendingText(coords);
+      setPendingTextValue("");
+      setTimeout(() => pendingTextRef.current?.focus(), 50);
+      return;
     } else if (activeTool) {
       handleAddAnnotation(coords.x, coords.y);
     }
   }
 
-  // Get cursor style
-  const [hoverHandle, setHoverHandle] = useState<HandleType | null>(null);
-
-  // Track if hovering inside crop region for cursor
-  const [hoverInsideCrop, setHoverInsideCrop] = useState(false);
-
-  const getCursorStyle = () => {
-    if (isDraggingCrop) return "grabbing";
-    if (draggingHandle || hoverHandle) {
-      const h = draggingHandle || hoverHandle;
-      if (h === "tl" || h === "br") return "nwse-resize";
-      if (h === "tr" || h === "bl") return "nesw-resize";
-      if (h === "tc" || h === "bc") return "ns-resize";
-      if (h === "ml" || h === "mr") return "ew-resize";
+  const confirmPendingText = useCallback(() => {
+    if (pendingText && pendingTextValue.trim()) {
+      handleAddAnnotation(pendingText.x, pendingText.y, pendingTextValue.trim());
     }
-    if (cropPending && hoverInsideCrop) return "grab";
+    setPendingText(null);
+    setPendingTextValue("");
+  }, [pendingText, pendingTextValue, handleAddAnnotation]);
+
+  const cancelPendingText = useCallback(() => {
+    setPendingText(null);
+    setPendingTextValue("");
+  }, []);
+
+  const updateAnnotation = useCallback((id: string, updates: Partial<Annotation>) => {
+    pushHistory();
+    setLocalAnnotations((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, ...updates } : a))
+    );
+  }, [pushHistory]);
+
+  const removeAnnotation = useCallback((id: string) => {
+    pushHistory();
+    setLocalAnnotations((prev) => prev.filter((a) => a.id !== id));
+  }, [pushHistory]);
+
+  const textAnnotations = localAnnotations.filter((a) => a.type === AnnotationType.Text);
+  const markAnnotations = localAnnotations.filter((a) => a.type !== AnnotationType.Text);
+
+  // Color picker popover state
+  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+  const PALETTE = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ffffff", "#000000"];
+
+  // Arrow key movement for selected annotation
+  useEffect(() => {
+    if (!selectedAnnotation) return;
+    const handleArrowKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const step = e.shiftKey ? 0.01 : 0.002;
+      let dx = 0, dy = 0;
+      if (e.key === "ArrowLeft") dx = -step;
+      else if (e.key === "ArrowRight") dx = step;
+      else if (e.key === "ArrowUp") dy = -step;
+      else if (e.key === "ArrowDown") dy = step;
+      else if (e.key === "Escape") { setSelectedAnnotation(null); return; }
+      else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        removeAnnotation(selectedAnnotation);
+        setSelectedAnnotation(null);
+        return;
+      }
+      else return;
+      e.preventDefault();
+      setLocalAnnotations((prev) =>
+        prev.map((a) =>
+          a.id === selectedAnnotation ? { ...a, x: a.x + dx, y: a.y + dy } : a
+        )
+      );
+    };
+    window.addEventListener("keydown", handleArrowKey);
+    return () => window.removeEventListener("keydown", handleArrowKey);
+  }, [selectedAnnotation, removeAnnotation]);
+
+  // Get cursor style
+  const getCursorStyle = () => {
+    if (isPanning) return "grabbing";
+    if (draggingAnnotation) return "grabbing";
+    if (spaceHeld || activeTool === "pan") return "grab";
     if (activeTool === "rotate") return isRotating ? "grabbing" : "grab";
-    if (isCropTool) return "crosshair";
+    if (activeTool === "pointer") return "default";
     return "crosshair";
   };
 
+  const hasViewportChanges = viewport.zoom !== 1 || viewport.panX !== 0 || viewport.panY !== 0;
+  const hasAdjustmentChanges = adjustments.brightness !== 100 || adjustments.contrast !== 100 || adjustments.saturate !== 100 || adjustments.temperature !== 0 || adjustments.clahe || adjustments.invert || adjustments.sharpen > 0;
+
+  const resetViewport = useCallback(() => {
+    setViewport({ ...DEFAULT_VIEWPORT });
+  }, []);
+
+  const resetAdjustments = useCallback(() => {
+    setAdjustments({ ...DEFAULT_ADJUSTMENTS });
+  }, []);
+
+  // Compute visible area overlay dimensions for different frame shapes
+  const visibleAreaStyle = useMemo(() => {
+    if (!frameSize) return null;
+    const shape = frameShape ?? "rectangle";
+    if (shape === "rectangle") {
+      return {
+        width: frameSize.w,
+        height: frameSize.h,
+        borderRadius: "4px",
+      };
+    }
+    // Square or circle: use the smaller dimension
+    const side = Math.min(frameSize.w, frameSize.h);
+    return {
+      width: side,
+      height: side,
+      borderRadius: shape === "circle" ? "9999px" : "4px",
+    };
+  }, [frameSize, frameShape]);
+
+  // For circle with black/white bg: show a dotted square border around the circle
+  const showDottedSquare = frameShape === "circle" && frameBg !== "transparent";
+  const dottedSquareSize = useMemo(() => {
+    if (!showDottedSquare || !frameSize) return null;
+    const side = Math.min(frameSize.w, frameSize.h);
+    return { width: side, height: side };
+  }, [showDottedSquare, frameSize]);
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-gray-900">
-      <div className="flex items-center justify-between bg-gray-800 px-4 py-2">
+      {/* Fila 1: Herramientas de anotación + colores + deshacer */}
+      <div className="flex items-center justify-between bg-gray-800 px-4 py-1.5 border-b border-gray-700">
         <AnnotationToolbar
           activeTool={activeTool}
           activeColor={activeColor}
           onSelectTool={(tool) => {
             setActiveTool(tool);
-            cancelCrop();
+            if (tool === "tympanic-map") {
+              if (!tympanicRef) {
+                setTympanicStep(0);
+              } else {
+                setTympanicStep(null);
+              }
+            } else {
+              setTympanicStep(null);
+            }
           }}
           onSelectColor={setActiveColor}
           onClear={() => {
@@ -935,104 +907,504 @@ export function ImageAnnotator({
           onUndo={undo}
           canUndo={canUndo}
         />
-        <div className="flex gap-2">
-          {savedCrop && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            const savedViewport = hasViewportChanges && frameSize
+              ? { zoom: viewport.zoom, panX: viewport.panX / frameSize.w, panY: viewport.panY / frameSize.h }
+              : hasViewportChanges ? viewport : null;
+            onSave(
+              localAnnotations,
+              rotation,
+              frameShape,
+              frameBg,
+              tympanicRef,
+              savedViewport,
+              hasAdjustmentChanges ? adjustments : null,
+            );
+          }}
+          className="text-white"
+        >
+          <X size={18} />
+        </Button>
+      </div>
+      {/* Fila 2: Zoom, forma visible, fondo, ajustes */}
+      <div className="flex items-center gap-2 bg-gray-800/80 px-4 py-1">
+        {/* Zoom controls */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setViewport((v) => ({ ...v, zoom: Math.max(1, v.zoom / 1.2) }))}
+            className="rounded p-1 text-gray-400 hover:bg-gray-700 hover:text-white"
+            title={t("editor.zoomOut")}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          </button>
+          <span className="text-[11px] text-gray-400 min-w-[2.5rem] text-center select-none tabular-nums">
+            {Math.round(viewport.zoom * 100)}%
+          </span>
+          <button
+            onClick={() => setViewport((v) => ({ ...v, zoom: Math.min(10, v.zoom * 1.2) }))}
+            className="rounded p-1 text-gray-400 hover:bg-gray-700 hover:text-white"
+            title={t("editor.zoomIn")}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          </button>
+          {hasViewportChanges && (
+            <button
+              onClick={resetViewport}
+              className="rounded p-1 text-orange-400 hover:bg-gray-700 hover:text-orange-300 text-[11px]"
+              title={t("editor.resetView")}
+            >
+              1:1
+            </button>
+          )}
+        </div>
+
+        <div className="h-5 w-px bg-gray-600" />
+
+        {/* Frame shape selector */}
+        <div className="flex items-center gap-0.5">
+          <span className="text-[11px] text-gray-500 mr-1">{t("editor.shape")}</span>
+          {([
+            { shape: "rectangle" as const, icon: RectangleHorizontal, key: "rectangular" },
+            { shape: "square" as const, icon: Square, key: "square" },
+            { shape: "circle" as const, icon: Circle, key: "circular" },
+          ]).map(({ shape, icon: Icon, key }) => (
+            <button
+              key={shape}
+              onClick={() => {
+                pushHistory();
+                setFrameShape(shape === "rectangle" ? null : shape);
+              }}
+              title={t(`editor.${key}`)}
+              className={cn(
+                "rounded p-1 transition-colors",
+                (frameShape ?? "rectangle") === shape
+                  ? "bg-cyan-600/30 text-cyan-300"
+                  : "text-gray-400 hover:bg-gray-700 hover:text-white"
+              )}
+            >
+              <Icon size={14} />
+            </button>
+          ))}
+        </div>
+
+        {/* Background selector — circle or rotate */}
+        {(frameShape === "circle" || activeTool === "rotate") && (
+          <>
+            <div className="h-5 w-px bg-gray-600" />
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] text-gray-500">{t("editor.background")}</span>
+              {([
+                { value: "black" as const, color: "#000000" },
+                { value: "white" as const, color: "#ffffff" },
+                { value: "transparent" as const, color: "" },
+              ]).map(({ value, color }) => (
+                <button
+                  key={value}
+                  onClick={() => setFrameBg(value)}
+                  title={t(`editor.${value}`)}
+                  className={cn(
+                    "h-4 w-4 rounded-full border-2 transition-transform",
+                    frameBg === value ? "scale-110 border-blue-400" : "border-gray-500"
+                  )}
+                  style={
+                    value === "transparent"
+                      ? { background: "repeating-conic-gradient(#808080 0% 25%, #c0c0c0 0% 50%) 50%/6px 6px" }
+                      : { backgroundColor: color }
+                  }
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="h-5 w-px bg-gray-600" />
+
+        {/* Adjustments toggle */}
+        <button
+          onClick={() => setShowAdjustments((v) => !v)}
+          className={cn(
+            "rounded p-1 transition-colors",
+            showAdjustments ? "bg-cyan-600/30 text-cyan-300" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+          )}
+          title={t("editor.imageAdjustments")}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+      </div>
+      <div ref={containerRef} className="relative flex flex-1 items-center justify-center overflow-hidden p-4">
+        {/* Canvas with zoom/pan */}
+        <div
+          style={{
+            transform: `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.zoom})`,
+            transformOrigin: "center center",
+            willChange: "transform",
+          }}
+          className="flex items-center justify-center"
+        >
+          <canvas
+            ref={canvasRef}
+            onClick={handleCanvasClick}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            style={{
+              imageRendering: "auto",
+              cursor: getCursorStyle(),
+              ...canvasDisplaySize,
+              filter: `brightness(${adjustments.brightness}%) contrast(${adjustments.contrast}%) saturate(${adjustments.saturate}%)${adjustments.temperature !== 0 ? ` sepia(${Math.abs(adjustments.temperature)}%) hue-rotate(${adjustments.temperature > 0 ? -20 : 180}deg)` : ""}`,
+            }}
+          />
+        </div>
+        {/* Visible area indicator */}
+        {visibleAreaStyle && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            {/* Dotted square around circle when bg is black/white */}
+            {dottedSquareSize && (
+              <div
+                className="absolute"
+                style={{
+                  width: dottedSquareSize.width,
+                  height: dottedSquareSize.height,
+                  border: "2px dashed rgba(255, 255, 255, 0.4)",
+                }}
+              />
+            )}
+            <div
+              className="relative"
+              style={{
+                width: visibleAreaStyle.width,
+                height: visibleAreaStyle.height,
+                borderRadius: visibleAreaStyle.borderRadius,
+                boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.5)",
+                border: "1px solid rgba(255, 255, 255, 0.25)",
+              }}
+            >
+              <span className="absolute -top-5 left-1 text-[10px] text-white/50">
+                {t("editor.visibleArea")}
+              </span>
+            </div>
+          </div>
+        )}
+        {/* Tympanic map step indicator */}
+        {activeTool === "tympanic-map" && tympanicStep !== null && (
+          <div className="absolute top-4 left-1/2 z-20 -translate-x-1/2 flex items-center gap-3 rounded-lg bg-gray-800 px-4 py-2 shadow-lg">
+            <span className="text-sm font-medium text-cyan-300">
+              {t("editor.step", { current: tympanicStep + 1, total: 7 })}
+            </span>
+            <span className="text-sm text-white">
+              {t(TYMPANIC_STEP_KEYS[tympanicStep])}
+            </span>
+          </div>
+        )}
+        {/* Tympanic map action bar */}
+        {activeTool === "tympanic-map" && tympanicRef && tympanicStep === null && (
+          <div className="absolute bottom-8 left-1/2 z-20 -translate-x-1/2 flex items-center gap-3 rounded-lg bg-gray-800 px-4 py-2 shadow-lg">
+            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={tympanicRef.showOverlay}
+                onChange={(e) => setTympanicRef({ ...tympanicRef, showOverlay: e.target.checked })}
+                className="accent-cyan-400"
+              />
+              {t("editor.includeInExport")}
+            </label>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-cyan-400 hover:text-cyan-300"
+              onClick={() => {
+                setTympanicStep(0);
+              }}
+            >
+              {t("editor.redoPoints")}
+            </Button>
             <Button
               variant="ghost"
               size="sm"
               className="text-orange-400 hover:text-orange-300"
               onClick={() => {
                 pushHistory();
-                setSavedCrop(null);
+                setTympanicRef(null);
+                setTympanicStep(null);
               }}
             >
-              Quitar recorte
-            </Button>
-          )}
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onSave(localAnnotations, rotation, savedCrop, cropBg)}
-          >
-            Guardar
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} className="text-white">
-            <X size={18} />
-          </Button>
-        </div>
-      </div>
-      <div className="relative flex flex-1 items-center justify-center overflow-auto p-4">
-        <canvas
-          ref={canvasRef}
-          onClick={handleCanvasClick}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          className="max-h-full max-w-full"
-          style={{ imageRendering: "auto", cursor: getCursorStyle() }}
-        />
-        {/* Crop action bar */}
-        {cropPending && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-lg bg-gray-800 px-4 py-2 shadow-lg">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-400">Fondo:</span>
-              {([
-                { value: "black" as const, color: "#000000", border: "border-gray-500" },
-                { value: "white" as const, color: "#ffffff", border: "border-gray-500" },
-                { value: "transparent" as const, color: "", border: "border-gray-500" },
-              ]).map(({ value, color, border }) => (
-                <button
-                  key={value}
-                  onClick={() => setCropBg(value)}
-                  title={value === "black" ? "Negro" : value === "white" ? "Blanco" : "Transparente"}
-                  className={cn(
-                    "h-5 w-5 rounded-full border-2 transition-transform",
-                    cropBg === value ? "scale-110 border-blue-400" : border
-                  )}
-                  style={
-                    value === "transparent"
-                      ? { background: "repeating-conic-gradient(#808080 0% 25%, #c0c0c0 0% 50%) 50%/8px 8px" }
-                      : { backgroundColor: color }
-                  }
-                />
-              ))}
-            </div>
-            <Button variant="primary" size="sm" onClick={applyCrop}>
-              <Check size={14} className="mr-1" />
-              Aplicar recorte
-            </Button>
-            <Button variant="ghost" size="sm" onClick={cancelCrop} className="text-white">
-              <X size={14} className="mr-1" />
-              Cancelar
+              {t("editor.deleteMap")}
             </Button>
           </div>
         )}
-        {/* Rotate background selector */}
-        {activeTool === "rotate" && !cropPending && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-lg bg-gray-800 px-4 py-2 shadow-lg">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-400">Fondo:</span>
-              {([
-                { value: "black" as const, color: "#000000", border: "border-gray-500" },
-                { value: "white" as const, color: "#ffffff", border: "border-gray-500" },
-                { value: "transparent" as const, color: "", border: "border-gray-500" },
-              ]).map(({ value, color, border }) => (
-                <button
-                  key={value}
-                  onClick={() => setCropBg(value)}
-                  title={value === "black" ? "Negro" : value === "white" ? "Blanco" : "Transparente"}
-                  className={cn(
-                    "h-5 w-5 rounded-full border-2 transition-transform",
-                    cropBg === value ? "scale-110 border-blue-400" : border
-                  )}
-                  style={
-                    value === "transparent"
-                      ? { background: "repeating-conic-gradient(#808080 0% 25%, #c0c0c0 0% 50%) 50%/8px 8px" }
-                      : { backgroundColor: color }
-                  }
-                />
-              ))}
+        {/* Pending text input */}
+        {pendingText && (
+          <div className="absolute bottom-8 left-1/2 z-20 -translate-x-1/2 flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2.5 shadow-lg">
+            <Type size={14} className="text-gray-400 shrink-0" />
+            <input
+              ref={pendingTextRef}
+              type="text"
+              value={pendingTextValue}
+              onChange={(e) => setPendingTextValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") confirmPendingText();
+                if (e.key === "Escape") cancelPendingText();
+              }}
+              placeholder={t("editor.textPlaceholder")}
+              className="w-48 rounded bg-gray-700 px-2 py-1 text-sm text-white placeholder-gray-500 outline-none focus:ring-1 focus:ring-cyan-400"
+              autoFocus
+            />
+            <Button variant="primary" size="sm" onClick={confirmPendingText} disabled={!pendingTextValue.trim()}>
+              {t("editor.addText")}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={cancelPendingText} className="text-gray-400 hover:text-white">
+              <X size={14} />
+            </Button>
+          </div>
+        )}
+        {/* Annotations list panel */}
+        {localAnnotations.length > 0 && (
+          <div className="absolute left-4 top-4 z-20 flex flex-col gap-1 rounded-lg bg-gray-800/95 backdrop-blur px-3 py-2.5 shadow-lg w-56 max-h-[calc(100%-2rem)] overflow-y-auto">
+            {textAnnotations.length > 0 && (
+              <>
+                <span className="text-[11px] font-medium text-gray-400">{t("editor.texts")}</span>
+                {textAnnotations.map((a) => (
+                  <div key={a.id} className="flex flex-col">
+                    <div
+                      className={cn(
+                        "flex items-center gap-1.5 rounded px-1 py-0.5 -mx-1",
+                        selectedAnnotation === a.id && "bg-cyan-900/40 ring-1 ring-cyan-500/50"
+                      )}
+                    >
+                      <button
+                        onClick={() => setColorPickerFor(colorPickerFor === a.id ? null : a.id)}
+                        className="h-4 w-4 shrink-0 rounded-sm border border-gray-500 cursor-pointer"
+                        style={{ backgroundColor: a.color }}
+                        title={t("editor.changeColor")}
+                      />
+                      <input
+                        type="text"
+                        value={a.text || ""}
+                        onChange={(e) => updateAnnotation(a.id, { text: e.target.value })}
+                        className="flex-1 min-w-0 rounded bg-gray-700 px-1.5 py-0.5 text-[11px] text-white outline-none focus:ring-1 focus:ring-cyan-400"
+                      />
+                      <button
+                        onClick={() => {
+                          if (selectedAnnotation === a.id) {
+                            setSelectedAnnotation(null);
+                          } else {
+                            setSelectedAnnotation(a.id);
+                            setActiveTool("pointer");
+                          }
+                        }}
+                        className={cn(
+                          "shrink-0 rounded p-0.5",
+                          selectedAnnotation === a.id
+                            ? "text-cyan-400 bg-cyan-900/50"
+                            : "text-gray-500 hover:bg-gray-700 hover:text-cyan-400"
+                        )}
+                        title={t("editor.selectMove")}
+                      >
+                        <Move size={11} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (selectedAnnotation === a.id) setSelectedAnnotation(null);
+                          removeAnnotation(a.id);
+                        }}
+                        className="shrink-0 rounded p-0.5 text-gray-500 hover:bg-gray-700 hover:text-red-400"
+                        title={t("editor.deleteItem")}
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                    {colorPickerFor === a.id && (
+                      <div className="flex items-center gap-1 py-1 pl-1">
+                        {PALETTE.map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => { updateAnnotation(a.id, { color: c }); setColorPickerFor(null); }}
+                            className={cn(
+                              "h-4 w-4 rounded-full border transition-transform",
+                              a.color === c ? "border-cyan-400 scale-110" : "border-gray-500"
+                            )}
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                        <input
+                          type="color"
+                          value={a.color}
+                          onChange={(e) => updateAnnotation(a.id, { color: e.target.value })}
+                          className="h-4 w-4 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0 ml-1"
+                          title={t("editor.customColor")}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+            {markAnnotations.length > 0 && (
+              <>
+                {textAnnotations.length > 0 && <div className="h-px bg-gray-700 my-1" />}
+                <span className="text-[11px] font-medium text-gray-400">{t("editor.marks")}</span>
+                {markAnnotations.map((a) => {
+                  const typeLabel =
+                    a.type === AnnotationType.Arrow ? t("editor.tools.arrow") :
+                    a.type === AnnotationType.Circle ? t("editor.tools.circle") :
+                    a.type === AnnotationType.Cross ? t("editor.tools.cross") :
+                    a.type === AnnotationType.Dot ? t("editor.tools.dot") : a.type;
+                  const TypeIcon =
+                    a.type === AnnotationType.Arrow ? ArrowUp :
+                    a.type === AnnotationType.Circle ? Circle :
+                    a.type === AnnotationType.Cross ? X :
+                    Crosshair;
+                  return (
+                    <div key={a.id} className="flex flex-col">
+                      <div
+                        className={cn(
+                          "flex items-center gap-1.5 rounded px-1 py-0.5 -mx-1",
+                          selectedAnnotation === a.id && "bg-cyan-900/40 ring-1 ring-cyan-500/50"
+                        )}
+                      >
+                        <button
+                          onClick={() => setColorPickerFor(colorPickerFor === a.id ? null : a.id)}
+                          className="h-4 w-4 shrink-0 rounded-sm border border-gray-500 cursor-pointer"
+                          style={{ backgroundColor: a.color }}
+                          title={t("editor.changeColor")}
+                        />
+                        <TypeIcon size={11} style={{ color: a.color }} className="shrink-0" />
+                        <span className="flex-1 text-[11px] text-gray-300 truncate">{typeLabel}</span>
+                        <button
+                          onClick={() => {
+                            if (selectedAnnotation === a.id) {
+                              setSelectedAnnotation(null);
+                            } else {
+                              setSelectedAnnotation(a.id);
+                              setActiveTool("pointer");
+                            }
+                          }}
+                          className={cn(
+                            "shrink-0 rounded p-0.5",
+                            selectedAnnotation === a.id
+                              ? "text-cyan-400 bg-cyan-900/50"
+                              : "text-gray-500 hover:bg-gray-700 hover:text-cyan-400"
+                          )}
+                          title={t("editor.selectMove")}
+                        >
+                          <Move size={11} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (selectedAnnotation === a.id) setSelectedAnnotation(null);
+                            removeAnnotation(a.id);
+                          }}
+                          className="shrink-0 rounded p-0.5 text-gray-500 hover:bg-gray-700 hover:text-red-400"
+                          title={t("editor.deleteItem")}
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                      {colorPickerFor === a.id && (
+                        <div className="flex items-center gap-1 py-1 pl-1">
+                          {PALETTE.map((c) => (
+                            <button
+                              key={c}
+                              onClick={() => { updateAnnotation(a.id, { color: c }); setColorPickerFor(null); }}
+                              className={cn(
+                                "h-4 w-4 rounded-full border transition-transform",
+                                a.color === c ? "border-cyan-400 scale-110" : "border-gray-500"
+                              )}
+                              style={{ backgroundColor: c }}
+                            />
+                          ))}
+                          <input
+                            type="color"
+                            value={a.color}
+                            onChange={(e) => updateAnnotation(a.id, { color: e.target.value })}
+                            className="h-4 w-4 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0 ml-1"
+                            title={t("editor.customColor")}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        )}
+        {/* Image adjustments panel */}
+        {showAdjustments && (
+          <div className="absolute right-4 top-4 flex flex-col gap-3 rounded-lg bg-gray-800/95 backdrop-blur px-4 py-3 shadow-lg w-56 z-20 max-h-[calc(100%-2rem)] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-300">{t("editor.imageAdjustments")}</span>
+              {hasAdjustmentChanges && (
+                <button onClick={resetAdjustments} className="text-[10px] text-orange-400 hover:text-orange-300">
+                  {t("editor.reset")}
+                </button>
+              )}
             </div>
+            {([
+              { key: "brightness" as const, i18nKey: "brightness", min: 0, max: 200 },
+              { key: "contrast" as const, i18nKey: "contrast", min: 0, max: 200 },
+              { key: "saturate" as const, i18nKey: "saturation", min: 0, max: 200 },
+              { key: "sharpen" as const, i18nKey: "sharpness", min: 0, max: 100 },
+              { key: "temperature" as const, i18nKey: "temperature", min: -100, max: 100 },
+            ]).map(({ key, i18nKey, min, max }) => (
+              <div key={key} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-gray-400">{t(`editor.${i18nKey}`)}</span>
+                  <span className="text-[11px] text-gray-500 tabular-nums w-8 text-right">
+                    {adjustments[key]}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={min}
+                  max={max}
+                  value={adjustments[key]}
+                  onChange={(e) => setAdjustments((prev) => ({ ...prev, [key]: Number(e.target.value) }))}
+                  className="w-full h-1 accent-cyan-400 bg-gray-600 rounded-full cursor-pointer"
+                />
+              </div>
+            ))}
+            <div className="h-px bg-gray-700" />
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={adjustments.clahe}
+                onChange={(e) => setAdjustments((prev) => ({ ...prev, clahe: e.target.checked }))}
+                className="accent-cyan-400"
+              />
+              <span className="text-[11px] text-gray-400">{t("editor.clahe")}</span>
+            </label>
+            {adjustments.clahe && (
+              <div className="flex flex-col gap-1 pl-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-gray-400">{t("editor.clipLimit")}</span>
+                  <span className="text-[11px] text-gray-500 tabular-nums w-8 text-right">
+                    {adjustments.claheClipLimit.toFixed(1)}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={8}
+                  step={0.5}
+                  value={adjustments.claheClipLimit}
+                  onChange={(e) => setAdjustments((prev) => ({ ...prev, claheClipLimit: Number(e.target.value) }))}
+                  className="w-full h-1 accent-cyan-400 bg-gray-600 rounded-full cursor-pointer"
+                />
+              </div>
+            )}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={adjustments.invert}
+                onChange={(e) => setAdjustments((prev) => ({ ...prev, invert: e.target.checked }))}
+                className="accent-cyan-400"
+              />
+              <span className="text-[11px] text-gray-400">{t("editor.invert")}</span>
+            </label>
           </div>
         )}
       </div>

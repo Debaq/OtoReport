@@ -1,4 +1,4 @@
-import type { Annotation, CropData } from "./annotation";
+import type { Annotation, FrameShape, TympanicReference, ViewportData, ImageAdjustments } from "./annotation";
 
 export type EarSide = "left" | "right" | "pre_left" | "pre_right" | "post_left" | "post_right";
 
@@ -13,6 +13,9 @@ export interface EarImage {
   rotation: number;
   notes: string;
   annotations: Annotation[];
-  crop?: CropData | null;
+  frameShape?: FrameShape | null;
   background?: "black" | "white" | "transparent";
+  tympanicRef?: TympanicReference | null;
+  viewport?: ViewportData | null;
+  adjustments?: ImageAdjustments | null;
 }

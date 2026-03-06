@@ -31,7 +31,7 @@ export function NewReport() {
   const patientIdParam = searchParams.get("patient");
   const sessionIdParam = searchParams.get("session");
 
-  const { report, createSession, saveReport, updateReport, loadReport, saving } =
+  const { report, createSession, updateReport, loadReport, flushSave } =
     useReports();
   const { allPatients } = usePatients();
   useWorkspace();
@@ -174,8 +174,7 @@ export function NewReport() {
           <ReportForm
             report={report}
             onChange={updateReport}
-            onSave={saveReport}
-            saving={saving}
+            flushSave={flushSave}
             readOnly={isReadOnly}
           />
         </div>

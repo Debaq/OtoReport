@@ -68,14 +68,10 @@ export function useEarImages({
   );
 
   const toggleSelected = useCallback(
-    (imageId: string) => {
-      onChange(
-        images.map((i) =>
-          i.id === imageId ? { ...i, selected: !i.selected } : i
-        )
-      );
+    (_imageId: string) => {
+      // All images are always selected — no-op
     },
-    [images, onChange]
+    []
   );
 
   const setPrimary = useCallback(

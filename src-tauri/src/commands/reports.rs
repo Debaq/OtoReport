@@ -30,6 +30,13 @@ pub struct EarImageData {
     pub notes: String,
     pub annotations: serde_json::Value,
     pub crop: Option<serde_json::Value>,
+    #[serde(rename = "frameShape")]
+    pub frame_shape: Option<String>,
+    pub background: Option<String>,
+    #[serde(rename = "tympanicRef")]
+    pub tympanic_ref: Option<serde_json::Value>,
+    pub viewport: Option<serde_json::Value>,
+    pub adjustments: Option<serde_json::Value>,
 }
 
 impl Default for EarImageData {
@@ -46,6 +53,11 @@ impl Default for EarImageData {
             notes: String::new(),
             annotations: serde_json::Value::Array(vec![]),
             crop: None,
+            frame_shape: None,
+            background: None,
+            tympanic_ref: None,
+            viewport: None,
+            adjustments: None,
         }
     }
 }

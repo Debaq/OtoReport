@@ -6,7 +6,22 @@ export enum AnnotationType {
   Dot = "dot",
 }
 
-export type EditorTool = AnnotationType | "eraser" | "crop-rect" | "crop-circle" | "rotate";
+export type FrameShape = "circle" | "square" | "rectangle";
+
+export type EditorTool = AnnotationType | "eraser" | "rotate" | "tympanic-map" | "pan" | "pointer";
+
+export interface TympanicReference {
+  umbo: { x: number; y: number };
+  shortProcess: { x: number; y: number };
+  annulusPoints: [
+    { x: number; y: number },
+    { x: number; y: number },
+    { x: number; y: number },
+    { x: number; y: number },
+    { x: number; y: number },
+  ];
+  showOverlay: boolean;
+}
 
 export interface Annotation {
   id: string;
@@ -19,9 +34,19 @@ export interface Annotation {
   text?: string;
 }
 
-export interface CropData {
-  start: { x: number; y: number };
-  end: { x: number; y: number };
-  type: "crop-rect" | "crop-circle";
-  background?: "black" | "white" | "transparent";
+export interface ViewportData {
+  zoom: number;
+  panX: number;
+  panY: number;
+}
+
+export interface ImageAdjustments {
+  brightness: number;
+  contrast: number;
+  saturate: number;
+  temperature: number;
+  clahe: boolean;
+  claheClipLimit: number;
+  invert: boolean;
+  sharpen: number;
 }

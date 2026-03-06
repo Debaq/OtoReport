@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Check, Trash2, Star, Pencil, EraserIcon, ArrowRightLeft, Crop, Download } from "lucide-react";
+import { Trash2, Star, Pencil, EraserIcon, ArrowRightLeft, Crop, Download, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { compositeAnnotations } from "@/lib/annotation-renderer";
 import type { EarImage } from "@/types/image";
@@ -20,7 +20,7 @@ interface PhotoGalleryProps {
 export function PhotoGallery({
   images,
   loadImageUrl,
-  onToggleSelected,
+  onToggleSelected: _onToggleSelected,
   onSetPrimary,
   onRemove,
   onPreview,
@@ -35,15 +35,15 @@ export function PhotoGallery({
 
   useEffect(() => {
     images.forEach(async (img) => {
-      const key = `${img.rotation}|${img.annotations.length}|${JSON.stringify(img.crop ?? null)}`;
+      const key = `${img.rotation}|${img.annotations.length}|${img.frameShape ?? ""}|${img.background ?? ""}|${img.tympanicRef ? "t" : ""}|${JSON.stringify(img.viewport ?? null)}|${JSON.stringify(img.adjustments ?? null)}`;
       if (thumbnails[img.id] && cacheKeysRef.current[img.id] === key) return;
 
       try {
         const rawUrl = await loadImageUrl(img.thumbnail);
-        const hasEdits = img.rotation !== 0 || img.annotations.length > 0 || !!img.crop;
+        const hasEdits = img.rotation !== 0 || img.annotations.length > 0 || !!img.frameShape || !!img.tympanicRef?.showOverlay || (img.viewport && (img.viewport.zoom !== 1 || img.viewport.panX !== 0 || img.viewport.panY !== 0)) || (img.adjustments && (img.adjustments.brightness !== 100 || img.adjustments.contrast !== 100 || img.adjustments.saturate !== 100 || img.adjustments.temperature !== 0 || img.adjustments.clahe || img.adjustments.invert || img.adjustments.sharpen > 0));
 
         if (hasEdits) {
-          const processed = await compositeAnnotations(rawUrl, img.annotations, img.rotation, null, img.crop, img.background);
+          const processed = await compositeAnnotations(rawUrl, img.annotations, img.rotation, null, img.frameShape, img.background, img.tympanicRef, undefined, img.viewport, img.adjustments);
           cacheKeysRef.current[img.id] = key;
           setThumbnails((prev) => ({ ...prev, [img.id]: processed }));
         } else {
@@ -65,11 +65,9 @@ export function PhotoGallery({
           key={img.id}
           className={cn(
             "overflow-hidden rounded-lg border-2 bg-bg-secondary",
-            img.primary && img.selected
+            img.primary
               ? "border-amber-400"
-              : img.selected
-                ? "border-accent"
-                : "border-border-secondary"
+              : "border-accent"
           )}
         >
           {/* Thumbnail — click to open annotator */}
@@ -90,14 +88,9 @@ export function PhotoGallery({
             )}
 
             {/* Badge */}
-            {img.primary && img.selected && (
+            {img.primary && (
               <div className="absolute left-1.5 top-1.5 rounded-full bg-amber-500 p-0.5 shadow-sm">
                 <Star size={10} className="fill-white text-white" />
-              </div>
-            )}
-            {img.selected && !img.primary && (
-              <div className="absolute left-1.5 top-1.5 rounded-full bg-accent p-0.5 shadow-sm">
-                <Check size={10} className="text-text-inverted" />
               </div>
             )}
             {img.annotations.length > 0 && (
@@ -106,9 +99,14 @@ export function PhotoGallery({
                 {img.annotations.length}
               </div>
             )}
-            {img.crop && (
+            {img.frameShape && img.frameShape !== "rectangle" && (
               <div className="absolute right-1.5 bottom-1.5 flex items-center rounded bg-black/50 p-0.5 text-white">
                 <Crop size={9} />
+              </div>
+            )}
+            {img.tympanicRef && (
+              <div className="absolute left-1.5 bottom-1.5 flex items-center rounded bg-cyan-600/70 p-0.5 text-white">
+                <Target size={9} />
               </div>
             )}
           </div>
@@ -126,18 +124,6 @@ export function PhotoGallery({
               title="Imagen principal"
             >
               <Star size={14} className={img.primary ? "fill-current" : ""} />
-            </button>
-            <button
-              onClick={() => onToggleSelected(img.id)}
-              className={cn(
-                "rounded p-1 transition-colors",
-                img.selected
-                  ? "bg-accent-subtle text-accent-text"
-                  : "text-text-tertiary hover:bg-bg-tertiary hover:text-accent"
-              )}
-              title={img.selected ? "Deseleccionar" : "Seleccionar"}
-            >
-              <Check size={14} />
             </button>
             {onClearAnnotations && img.annotations.length > 0 && (
               <button

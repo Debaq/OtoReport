@@ -52,14 +52,12 @@ interface ReportPreviewProps {
     filename: string
   ) => Promise<string>;
   onClose: () => void;
-  onStatusComplete?: () => void;
 }
 
 export function ReportPreview({
   report,
   loadImageUrl,
   onClose,
-  onStatusComplete,
 }: ReportPreviewProps) {
   const { config } = useWorkspace();
   const resolvedConfig = config ? { ...defaultConfig, ...config } : defaultConfig;
@@ -135,27 +133,38 @@ export function ReportPreview({
     const rawUrl = await loadImageUrl(report.patient_id, report.session_id, side, img.filename);
     const hasAnnotations = resolvedConfig.show_annotations && img.annotations.length > 0;
     const hasRotation = img.rotation !== 0;
-    const hasCrop = !!img.crop;
-    if (hasAnnotations || hasRotation || hasCrop) {
-      return await compositeAnnotations(
-        rawUrl,
-        hasAnnotations ? img.annotations : [],
-        img.rotation,
-        null,
-        img.crop,
-        img.background
-      );
+    const hasFrame = !!img.frameShape;
+    const hasTympanic = !!img.tympanicRef?.showOverlay;
+    const hasViewport = !!img.viewport && (img.viewport.zoom !== 1 || img.viewport.panX !== 0 || img.viewport.panY !== 0);
+    const hasAdjustments = !!img.adjustments && (img.adjustments.brightness !== 100 || img.adjustments.contrast !== 100 || img.adjustments.saturate !== 100 || img.adjustments.temperature !== 0 || img.adjustments.clahe || img.adjustments.invert || img.adjustments.sharpen > 0);
+    if (hasAnnotations || hasRotation || hasFrame || hasTympanic || hasViewport || hasAdjustments) {
+      try {
+        return await compositeAnnotations(
+          rawUrl,
+          hasAnnotations ? img.annotations : [],
+          img.rotation,
+          null,
+          img.frameShape,
+          img.background,
+          img.tympanicRef,
+          side as import("@/types/image").EarSide,
+          img.viewport,
+          img.adjustments,
+        );
+      } catch (err) {
+        console.warn(`compositeAnnotations failed for ${img.filename}, using raw image:`, err);
+        return rawUrl;
+      }
     }
     return rawUrl;
   }
 
   async function getEarImages(side: string, earData?: EarData): Promise<{ primary: string | null; secondary: string[] }> {
     const data = earData ?? (side === "right" ? report.right_ear : report.left_ear);
-    const selected = data.images.filter((img) => img.selected);
-    if (selected.length === 0) return { primary: null, secondary: [] };
+    if (data.images.length === 0) return { primary: null, secondary: [] };
 
-    const primaryImg = selected.find((img) => img.primary) || selected[0];
-    const secondaryImgs = selected.filter((img) => img.id !== primaryImg.id);
+    const primaryImg = data.images.find((img) => img.primary) || data.images[0];
+    const secondaryImgs = data.images.filter((img) => img.id !== primaryImg.id);
     let primaryUrl: string | null = null;
     const secondaryUrls: string[] = [];
 
@@ -260,7 +269,7 @@ export function ReportPreview({
       if (await isAndroid()) {
         const cachedPath = await invoke<string>("save_pdf_to_cache", { filename, data: bytes });
         await openPath(cachedPath);
-        onStatusComplete?.();
+
       } else {
         const filePath = await save({
           defaultPath: filename,
@@ -268,7 +277,7 @@ export function ReportPreview({
         });
         if (filePath) {
           await invoke("save_pdf", { path: filePath, data: bytes });
-          onStatusComplete?.();
+  
         }
       }
     } catch (err) {

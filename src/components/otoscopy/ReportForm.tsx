@@ -5,7 +5,7 @@ import type { Report, SessionInfo } from "@/types";
 import { EarPanel } from "./EarPanel";
 import { ReportPreview } from "./ReportPreview";
 import { Button } from "@/components/ui/Button";
-import { Save, FileText, ChevronDown, ChevronUp, RefreshCw, Settings, Import, X } from "lucide-react";
+import { FileText, ChevronDown, ChevronUp, RefreshCw, Settings, Import, X, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { EarImage } from "@/types/image";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -15,12 +15,11 @@ import { formatDate } from "@/lib/utils";
 interface ReportFormProps {
   report: Report;
   onChange: (updater: (prev: Report) => Report) => void;
-  onSave: (report: Report) => Promise<void>;
-  saving: boolean;
+  flushSave?: () => Promise<void>;
   readOnly?: boolean;
 }
 
-export function ReportForm({ report, onChange, onSave, saving, readOnly }: ReportFormProps) {
+export function ReportForm({ report, onChange, flushSave, readOnly }: ReportFormProps) {
   const { t } = useTranslation();
   const [showPreview, setShowPreview] = useState(false);
   const [showPatientDetails, setShowPatientDetails] = useState(false);
@@ -416,16 +415,21 @@ export function ReportForm({ report, onChange, onSave, saving, readOnly }: Repor
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={() => setShowPreview(true)}>
+        {!readOnly && (
+          <Button variant="ghost" onClick={() => {
+            onChange((r) => ({ ...r, status: "completed" }));
+          }}>
+            <CheckCircle size={16} />
+            {t("report.markCompleted")}
+          </Button>
+        )}
+        <Button variant="secondary" onClick={async () => {
+          await flushSave?.();
+          setShowPreview(true);
+        }}>
           <FileText size={16} />
           {t("report.preview")}
         </Button>
-        {!readOnly && (
-          <Button onClick={() => onSave(report)} disabled={saving}>
-            <Save size={16} />
-            {saving ? t("report.saving") : t("report.save")}
-          </Button>
-        )}
       </div>
 
       {showPreview && (
@@ -433,14 +437,6 @@ export function ReportForm({ report, onChange, onSave, saving, readOnly }: Repor
           report={report}
           loadImageUrl={loadImageUrl}
           onClose={() => setShowPreview(false)}
-          onStatusComplete={
-            !readOnly
-              ? () => {
-                  onChange((r) => ({ ...r, status: "completed" }));
-                  onSave({ ...report, status: "completed" });
-                }
-              : undefined
-          }
         />
       )}
 

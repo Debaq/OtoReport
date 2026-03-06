@@ -103,9 +103,9 @@ export function EarPanel({ side, data, patientId, sessionId, patientName, report
   async function handleDownload(img: EarImage) {
     try {
       const rawUrl = await loadImageUrl(img.filename);
-      const hasEdits = img.rotation !== 0 || img.annotations.length > 0 || !!img.crop;
+      const hasEdits = img.rotation !== 0 || img.annotations.length > 0 || !!img.frameShape || !!img.tympanicRef?.showOverlay || (img.viewport && (img.viewport.zoom !== 1 || img.viewport.panX !== 0 || img.viewport.panY !== 0)) || (img.adjustments && (img.adjustments.brightness !== 100 || img.adjustments.contrast !== 100 || img.adjustments.saturate !== 100 || img.adjustments.temperature !== 0 || img.adjustments.clahe || img.adjustments.invert || img.adjustments.sharpen > 0));
       const finalUrl = hasEdits
-        ? await compositeAnnotations(rawUrl, img.annotations, img.rotation, null, img.crop, img.background)
+        ? await compositeAnnotations(rawUrl, img.annotations, img.rotation, null, img.frameShape, img.background, img.tympanicRef, side, img.viewport, img.adjustments)
         : rawUrl;
 
       const sideLabel = isRight ? "derecho" : "izquierdo";
@@ -227,8 +227,13 @@ export function EarPanel({ side, data, patientId, sessionId, patientName, report
         <PhotoPreview
           loadImage={loadPreviewImage}
           rotation={previewImage.rotation}
-          crop={previewImage.crop}
+          annotations={previewImage.annotations}
+          frameShape={previewImage.frameShape}
           background={previewImage.background}
+          side={side}
+          tympanicRef={previewImage.tympanicRef}
+          viewport={previewImage.viewport}
+          adjustments={previewImage.adjustments}
           onClose={() => setPreviewImage(null)}
         />
       )}
@@ -249,19 +254,19 @@ export function EarPanel({ side, data, patientId, sessionId, patientName, report
           imageUrl={annotatingUrl}
           annotations={annotatingImage.annotations}
           rotation={annotatingImage.rotation}
-          crop={annotatingImage.crop}
+          frameShape={annotatingImage.frameShape}
           background={annotatingImage.background}
-          onSave={(annotations, rotation, crop, background) => {
+          side={side}
+          tympanicRef={annotatingImage.tympanicRef}
+          viewport={annotatingImage.viewport}
+          adjustments={annotatingImage.adjustments}
+          onSave={(annotations, rotation, frameShape, background, tympanicRef, viewport, adjustments) => {
             const updated = data.images.map((img) =>
               img.id === annotatingImage.id
-                ? { ...img, annotations, rotation, crop, background }
+                ? { ...img, annotations, rotation, frameShape, background, tympanicRef, viewport, adjustments }
                 : img
             );
             onChange({ ...data, images: updated });
-            setAnnotatingImage(null);
-            setAnnotatingUrl("");
-          }}
-          onClose={() => {
             setAnnotatingImage(null);
             setAnnotatingUrl("");
           }}
