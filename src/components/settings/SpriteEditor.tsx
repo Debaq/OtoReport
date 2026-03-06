@@ -9,6 +9,7 @@ import {
   SPRITE_COLS,
   SPRITE_ROWS,
   SPRITES_PER_SHEET,
+  useSheetCount,
 } from "@/components/ui/SpriteAvatar";
 
 type HandleKey = "first" | "lastCol" | "lastRow";
@@ -20,6 +21,7 @@ const HANDLE_META: Record<HandleKey, { color: string; label: string }> = {
 };
 
 export function SpriteEditor({ onClose }: { onClose: () => void }) {
+  const sheetCount = useSheetCount();
   const [cal, setCal] = useState<SpriteCalibration>(() => ({ ...loadCalibration() }));
   const [originalCal] = useState<SpriteCalibration>(() => ({ ...loadCalibration() }));
   const [sheet, setSheet] = useState(1);
@@ -108,7 +110,7 @@ export function SpriteEditor({ onClose }: { onClose: () => void }) {
         <div className="overflow-y-auto px-4 py-3 space-y-3">
           {/* Sheet + grid toggle */}
           <div className="flex items-center gap-2">
-            {[1, 2].map((s) => (
+            {Array.from({ length: sheetCount }, (_, i) => i + 1).map((s) => (
               <button
                 key={s}
                 onClick={() => setSheet(s)}

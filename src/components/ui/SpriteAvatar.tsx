@@ -1,9 +1,62 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export const SPRITE_COLS = 8;
 export const SPRITE_ROWS = 4;
 export const SPRITES_PER_SHEET = SPRITE_COLS * SPRITE_ROWS;
-const TOTAL_SPRITES = SPRITES_PER_SHEET * 2;
+
+/** Número de hojas detectadas en /public (profile_1.png, profile_2.png, ...) */
+let _detectedSheets = 2; // fallback mínimo
+let _detectionDone = false;
+const _listeners = new Set<() => void>();
+
+/** Prueba si una imagen existe intentando cargarla */
+function probeImage(src: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = src;
+  });
+}
+
+/** Detecta cuántas hojas profile_N.png existen */
+async function detectSheetCount(): Promise<number> {
+  let count = 0;
+  for (let i = 1; ; i++) {
+    if (await probeImage(`/profile_${i}.png`)) {
+      count = i;
+    } else {
+      break;
+    }
+  }
+  return Math.max(count, 1);
+}
+
+// Iniciar detección al cargar el módulo
+detectSheetCount().then((n) => {
+  _detectedSheets = n;
+  _detectionDone = true;
+  _listeners.forEach((fn) => fn());
+  _listeners.clear();
+});
+
+export function useSheetCount(): number {
+  const [count, setCount] = useState(_detectedSheets);
+  useEffect(() => {
+    if (_detectionDone) {
+      setCount(_detectedSheets);
+      return;
+    }
+    const listener = () => setCount(_detectedSheets);
+    _listeners.add(listener);
+    return () => { _listeners.delete(listener); };
+  }, []);
+  return count;
+}
+
+export function getTotalSprites(): number {
+  return SPRITES_PER_SHEET * _detectedSheets;
+}
 
 // Aspect ratio conocido de los sprite sheets
 const IMG_W = 2816;
@@ -56,7 +109,7 @@ export function getSpriteStyleForCal(
   size: number,
   cal: SpriteCalibration,
 ): React.CSSProperties {
-  const sheet = index < SPRITES_PER_SHEET ? 1 : 2;
+  const sheet = Math.floor(index / SPRITES_PER_SHEET) + 1;
   const localIndex = index % SPRITES_PER_SHEET;
   const col = localIndex % SPRITE_COLS;
   const row = Math.floor(localIndex / SPRITE_COLS);
@@ -95,7 +148,7 @@ export function SpriteAvatar({
   size?: number;
   className?: string;
 }) {
-  if (avatar != null && avatar >= 0 && avatar < TOTAL_SPRITES) {
+  if (avatar != null && avatar >= 0 && avatar < getTotalSprites()) {
     return (
       <div
         className={`flex-shrink-0 rounded-full ${className}`}
@@ -122,28 +175,32 @@ export function AvatarPicker({
   selected?: number;
   onSelect: (index: number | undefined) => void;
 }) {
-  const [page, setPage] = useState(selected != null && selected >= SPRITES_PER_SHEET ? 1 : 0);
+  const sheetCount = useSheetCount();
+  const [page, setPage] = useState(selected != null ? Math.floor(selected / SPRITES_PER_SHEET) : 0);
 
   const start = page * SPRITES_PER_SHEET;
   const indices = Array.from({ length: SPRITES_PER_SHEET }, (_, i) => start + i);
+  const pages = Array.from({ length: sheetCount }, (_, i) => i);
 
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs font-medium text-text-secondary">Avatar</span>
-        <div className="flex gap-1">
-          {[0, 1].map((p) => (
-            <button
-              key={p}
-              onClick={() => setPage(p)}
-              className={`rounded px-2 py-0.5 text-xs ${
-                page === p ? "bg-accent text-text-inverted" : "text-text-tertiary hover:bg-bg-tertiary"
-              }`}
-            >
-              {p + 1}
-            </button>
-          ))}
-        </div>
+        {sheetCount > 1 && (
+          <div className="flex gap-1">
+            {pages.map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={`rounded px-2 py-0.5 text-xs ${
+                  page === p ? "bg-accent text-text-inverted" : "text-text-tertiary hover:bg-bg-tertiary"
+                }`}
+              >
+                {p + 1}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-8 gap-1.5">
         {indices.map((i) => (
