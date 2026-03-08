@@ -1,0 +1,191 @@
+{
+  "version": 1,
+  "name": "Progresión de Otitis Media Aguda",
+  "description": "Animación que muestra la progresión de una otitis media aguda: inflamación, acumulación de fluido y presión.",
+  "duration": 8,
+  "fps": 30,
+  "width": 400,
+  "height": 300,
+  "loop": true,
+  "layers": [
+    {
+      "id": "membrane-base",
+      "name": "Membrana timpánica",
+      "type": "svg-shape",
+      "visible": true,
+      "locked": false,
+      "zIndex": 0,
+      "svgType": "ellipse",
+      "svgProps": {
+        "cx": 200,
+        "cy": 150,
+        "rx": 120,
+        "ry": 130
+      },
+      "transform": { "x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "anchorX": 0.5, "anchorY": 0.5 },
+      "opacity": 1,
+      "fill": "#f5deb3",
+      "stroke": "#c4a46c",
+      "strokeWidth": 2,
+      "tracks": [
+        {
+          "property": "fill",
+          "keyframes": [
+            { "time": 0, "value": "#f5deb3", "easing": { "type": "ease-in-out" } },
+            { "time": 3, "value": "#e8a090", "easing": { "type": "ease-in-out" } },
+            { "time": 6, "value": "#d4756a", "easing": { "type": "ease-in-out" } },
+            { "time": 8, "value": "#f5deb3", "easing": { "type": "ease-out" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "inflammation",
+      "name": "Inflamación",
+      "type": "svg-effect",
+      "visible": true,
+      "locked": false,
+      "zIndex": 1,
+      "effectType": "inflammation",
+      "effectConfig": {
+        "cx": 200,
+        "cy": 150,
+        "radius": 100,
+        "vessels": 6
+      },
+      "transform": { "x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "anchorX": 0.5, "anchorY": 0.5 },
+      "opacity": 1,
+      "tracks": [
+        {
+          "property": "intensity",
+          "keyframes": [
+            { "time": 0, "value": 0, "easing": { "type": "ease-in" } },
+            { "time": 3, "value": 0.6, "easing": { "type": "ease-in-out" } },
+            { "time": 6, "value": 1, "easing": { "type": "ease-in-out" } },
+            { "time": 8, "value": 0, "easing": { "type": "ease-out" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fluid",
+      "name": "Acumulación de líquido",
+      "type": "svg-effect",
+      "visible": true,
+      "locked": false,
+      "zIndex": 2,
+      "effectType": "fluid-level",
+      "effectConfig": {
+        "color": "rgba(116,185,255,0.4)",
+        "waveAmplitude": 4,
+        "waveSpeed": 2,
+        "bubbles": 3
+      },
+      "transform": { "x": 80, "y": 20, "scaleX": 1, "scaleY": 1, "rotation": 0, "anchorX": 0.5, "anchorY": 0.5 },
+      "opacity": 1,
+      "tracks": [
+        {
+          "property": "level",
+          "keyframes": [
+            { "time": 0, "value": 0, "easing": { "type": "ease-in" } },
+            { "time": 4, "value": 0.1, "easing": { "type": "ease-in-out" } },
+            { "time": 7, "value": 0.45, "easing": { "type": "ease-in-out" } },
+            { "time": 8, "value": 0, "easing": { "type": "ease-out" } }
+          ]
+        },
+        {
+          "property": "opacity",
+          "keyframes": [
+            { "time": 0, "value": 0, "easing": { "type": "ease-in" } },
+            { "time": 3, "value": 0.8, "easing": { "type": "ease-in-out" } },
+            { "time": 7.5, "value": 0.8, "easing": { "type": "ease-in-out" } },
+            { "time": 8, "value": 0, "easing": { "type": "ease-out" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bacteria",
+      "name": "Bacterias",
+      "type": "svg-effect",
+      "visible": true,
+      "locked": false,
+      "zIndex": 3,
+      "effectType": "bacteria",
+      "effectConfig": {
+        "color": "#8bc34a",
+        "areaX": 100,
+        "areaY": 80,
+        "areaW": 200,
+        "areaH": 140,
+        "seed": 42
+      },
+      "transform": { "x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "anchorX": 0.5, "anchorY": 0.5 },
+      "opacity": 1,
+      "tracks": [
+        {
+          "property": "count",
+          "keyframes": [
+            { "time": 0, "value": 0, "easing": { "type": "ease-in" } },
+            { "time": 2, "value": 2, "easing": { "type": "ease-in-out" } },
+            { "time": 5, "value": 8, "easing": { "type": "ease-in-out" } },
+            { "time": 7, "value": 12, "easing": { "type": "ease-in-out" } },
+            { "time": 8, "value": 0, "easing": { "type": "ease-out" } }
+          ]
+        },
+        {
+          "property": "opacity",
+          "keyframes": [
+            { "time": 0, "value": 0, "easing": { "type": "ease-in" } },
+            { "time": 1, "value": 0.7, "easing": { "type": "ease-in-out" } },
+            { "time": 7, "value": 0.7, "easing": { "type": "ease-in-out" } },
+            { "time": 8, "value": 0, "easing": { "type": "ease-out" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "malleus",
+      "name": "Mango del martillo",
+      "type": "svg-shape",
+      "visible": true,
+      "locked": false,
+      "zIndex": 4,
+      "svgType": "line",
+      "svgProps": {
+        "x1": 200,
+        "y1": 50,
+        "x2": 200,
+        "y2": 160
+      },
+      "transform": { "x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "anchorX": 0.5, "anchorY": 0.5 },
+      "opacity": 0.7,
+      "stroke": "#8b7355",
+      "strokeWidth": 3,
+      "tracks": []
+    },
+    {
+      "id": "umbo",
+      "name": "Umbo",
+      "type": "svg-shape",
+      "visible": true,
+      "locked": false,
+      "zIndex": 5,
+      "svgType": "circle",
+      "svgProps": {
+        "cx": 200,
+        "cy": 160,
+        "r": 4
+      },
+      "transform": { "x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "anchorX": 0.5, "anchorY": 0.5 },
+      "opacity": 0.8,
+      "fill": "#6b5340",
+      "tracks": []
+    }
+  ],
+  "metadata": {
+    "author": "OtoReport",
+    "createdAt": "2026-03-07T00:00:00.000Z",
+    "tags": ["otitis", "inflamación", "tímpano"]
+  }
+}

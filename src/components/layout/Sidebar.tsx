@@ -6,12 +6,14 @@ import {
   FilePlus,
   ClipboardList,
   BookOpen,
+  GraduationCap,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isBetaEnabled } from "@/hooks/useBetaFeatures";
 
 type SidebarItem =
-  | { type: "link"; to: string; icon: typeof LayoutDashboard; label: string }
+  | { type: "link"; to: string; icon: typeof LayoutDashboard; label: string; badge?: string }
   | { type: "separator" };
 
 export function Sidebar() {
@@ -24,6 +26,9 @@ export function Sidebar() {
     { type: "link", to: "/history", icon: ClipboardList, label: t("sidebar.history") },
     { type: "separator" },
     { type: "link", to: "/findings-library", icon: BookOpen, label: t("sidebar.findingsLibrary") },
+    ...(isBetaEnabled("education")
+      ? [{ type: "link" as const, to: "/education", icon: GraduationCap, label: t("sidebar.education"), badge: "Beta" }]
+      : []),
     { type: "separator" },
     { type: "link", to: "/settings", icon: Settings, label: t("sidebar.settings") },
   ];
@@ -55,7 +60,12 @@ export function Sidebar() {
               }
             >
               <item.icon size={18} />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.badge && (
+                <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                  {item.badge}
+                </span>
+              )}
             </NavLink>
           )
         )}

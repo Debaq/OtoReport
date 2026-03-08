@@ -15,8 +15,11 @@ import {
   ChevronRight,
   Upload,
   Download,
+  ImagePlus,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
+import { Button } from "@/components/ui/Button";
+import { ImageAnnotator } from "@/components/annotation/ImageAnnotator";
 import { getFindingsLibrary, type LibraryFinding } from "@/lib/findings-library";
 import {
   syncFindingsCache,
@@ -24,6 +27,7 @@ import {
   clearFindingsCache,
   type SyncProgress,
 } from "@/lib/findings-cache";
+import type { Annotation, FrameShape } from "@/types/annotation";
 
 type ContributorEntry = { file: string; name: string };
 type Contributors = Record<string, ContributorEntry[]>;
@@ -36,11 +40,13 @@ function FindingCard({
   isOnline,
   entries,
   cachedUrls,
+  onImageClick,
 }: {
   finding: LibraryFinding;
   isOnline: boolean;
   entries?: ContributorEntry[];
   cachedUrls: Map<string, string>;
+  onImageClick?: (finding: LibraryFinding, imageUrl: string) => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -102,7 +108,8 @@ function FindingCard({
               loading="lazy"
               onLoad={() => setImgStatus("loaded")}
               onError={() => setImgStatus("error")}
-              className={`h-full w-full object-cover transition-opacity ${
+              onClick={() => imgStatus === "loaded" && onImageClick?.(finding, imgSrc)}
+              className={`h-full w-full object-cover transition-opacity cursor-pointer ${
                 imgStatus === "loaded" ? "opacity-100" : "opacity-0"
               }`}
             />
@@ -185,6 +192,16 @@ function FindingCard({
   );
 }
 
+type EditorState = {
+  finding: LibraryFinding;
+  imageUrl: string;
+};
+
+type PostEditState = {
+  finding: LibraryFinding;
+  hasAnnotations: boolean;
+};
+
 export function FindingsLibrary() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -195,6 +212,26 @@ export function FindingsLibrary() {
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [cachedUrls, setCachedUrls] = useState<Map<string, string>>(new Map());
   const isSyncing = useRef(false);
+
+  // Editor state
+  const [editorState, setEditorState] = useState<EditorState | null>(null);
+  const [postEdit, setPostEdit] = useState<PostEditState | null>(null);
+
+  const handleImageClick = useCallback((finding: LibraryFinding, imageUrl: string) => {
+    setEditorState({ finding, imageUrl });
+  }, []);
+
+  const handleEditorSave = useCallback(
+    (annotations: Annotation[], _rotation: number, _frameShape?: FrameShape | null) => {
+      if (!editorState) return;
+      setPostEdit({
+        finding: editorState.finding,
+        hasAnnotations: annotations.length > 0,
+      });
+      setEditorState(null);
+    },
+    [editorState]
+  );
 
   /** Resolve cached URLs for all contributor image files */
   const resolveCachedUrls = useCallback(async (contribs: Contributors) => {
@@ -300,9 +337,79 @@ export function FindingsLibrary() {
 
   const isDownloading = syncProgress?.status === "downloading";
 
+  // Fullscreen editor
+  if (editorState) {
+    return (
+      <ImageAnnotator
+        imageUrl={editorState.imageUrl}
+        annotations={[]}
+        rotation={0}
+        onSave={handleEditorSave}
+      />
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
       <Header title={t("findingsLibrary.title")} />
+
+      {/* Post-edit contribute prompt */}
+      {postEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-border-secondary bg-bg-primary p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-text-primary">
+              {postEdit.finding.label}
+            </h3>
+
+            {postEdit.hasAnnotations && (
+              <div className="mt-3 rounded-lg bg-accent/10 border border-accent/30 p-3">
+                <p className="text-sm text-text-primary font-medium">
+                  {t("findingsLibrary.editContributeHint")}
+                </p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  {t("findingsLibrary.editContributeDesc")}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-4 space-y-2">
+              <Button
+                variant="primary"
+                className="w-full"
+                onClick={() => {
+                  const key = postEdit.finding.key;
+                  setPostEdit(null);
+                  navigate(`/contribute/${key}`);
+                }}
+              >
+                <Upload size={14} className="mr-2" />
+                {t("findingsLibrary.contributeImage")}
+              </Button>
+
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => {
+                  const key = postEdit.finding.key;
+                  setPostEdit(null);
+                  navigate(`/contribute/${key}`);
+                }}
+              >
+                <ImagePlus size={14} className="mr-2" />
+                {t("findingsLibrary.uploadNew")}
+              </Button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setPostEdit(null)}
+              className="mt-3 w-full text-center text-xs text-text-tertiary hover:text-text-secondary"
+            >
+              {t("findingsLibrary.closePrompt")}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <p className="mb-4 text-sm text-text-secondary">
@@ -443,6 +550,7 @@ export function FindingsLibrary() {
                 isOnline={connection === "online"}
                 entries={contributors[finding.key]}
                 cachedUrls={cachedUrls}
+                onImageClick={handleImageClick}
               />
             ))}
           </div>

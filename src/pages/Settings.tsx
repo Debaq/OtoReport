@@ -10,7 +10,8 @@ import { Select } from "@/components/ui/Select";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 import { isAndroid } from "@/lib/platform";
-import { FolderOpen, Save, ImageIcon, X, ZoomIn, ChevronUp, ChevronDown, GripVertical, RotateCcw, Settings2, FileText, Stethoscope, Sun, Moon, Palette, Plus, Trash2, Search, Users, LogOut, Sparkles, Wine, Info, ExternalLink, Github, BookOpen, Loader2, WifiOff, Camera, ShoppingCart, RefreshCw, ImageOff, MessageCircle, Heart, Coffee, MapPin } from "lucide-react";
+import { FolderOpen, Save, ImageIcon, X, ZoomIn, ChevronUp, ChevronDown, GripVertical, RotateCcw, Settings2, FileText, Stethoscope, Sun, Moon, Palette, Plus, Trash2, Search, Users, LogOut, Sparkles, Wine, Info, ExternalLink, Github, BookOpen, Loader2, WifiOff, Camera, ShoppingCart, RefreshCw, ImageOff, MessageCircle, Heart, Coffee, MapPin, FlaskConical } from "lucide-react";
+import { useBetaFeatures } from "@/hooks/useBetaFeatures";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useUpdateChecker, APP_VERSION } from "@/hooks/useUpdateChecker";
 import type { WorkspaceConfig, FindingsCategoryConfig, FindingCheckConfig, UserProfile } from "@/types";
@@ -771,6 +772,7 @@ export function Settings() {
   const { config, workspacePath, selectWorkspace, updateConfig, profiles, activeProfile, addProfile, updateProfile, removeProfile, clearProfileSelection } =
     useWorkspace();
   const { theme, setTheme } = useTheme();
+  const { features: betaFeatures, toggle: toggleBeta } = useBetaFeatures();
   const [form, setForm] = useState<WorkspaceConfig>(defaultConfig);
   const [saved, setSaved] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -1066,6 +1068,38 @@ export function Settings() {
                     placeholder="Otoscopio digital DZ450"
                   />
                 </div>
+              </div>
+
+              {/* Beta features */}
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <FlaskConical size={18} className="text-amber-400" />
+                  <h3 className="text-lg font-semibold text-text-primary">
+                    {t("settings.beta.title")}
+                  </h3>
+                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-400">Beta</span>
+                </div>
+                <p className="mb-4 text-sm text-text-tertiary">{t("settings.beta.subtitle")}</p>
+                <label className="flex items-center justify-between rounded-lg bg-bg-tertiary px-4 py-3 cursor-pointer">
+                  <div>
+                    <div className="text-sm font-medium text-text-primary">{t("settings.beta.education")}</div>
+                    <div className="text-xs text-text-tertiary">{t("settings.beta.educationDesc")}</div>
+                  </div>
+                  <div
+                    role="switch"
+                    aria-checked={betaFeatures.education}
+                    onClick={() => toggleBeta("education")}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                      betaFeatures.education ? "bg-accent" : "bg-bg-primary"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                        betaFeatures.education ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </div>
+                </label>
               </div>
 
               <div className="flex justify-end">

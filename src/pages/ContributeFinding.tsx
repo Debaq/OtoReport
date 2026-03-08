@@ -98,6 +98,7 @@ export function ContributeFinding() {
   const [background, setBackground] = useState<"black" | "white" | "transparent">("black");
   const [showAnnotator, setShowAnnotator] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [existingEntries, setExistingEntries] = useState<ContributorEntry[]>([]);
 
   // Obtener contributors existentes del index remoto
@@ -330,12 +331,36 @@ export function ContributeFinding() {
             )}
           </div>
 
+          {/* Ethics & terms */}
+          <div className="rounded-lg border border-border-secondary bg-bg-secondary p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-text-primary">
+              {t("contribute.ethicsTitle")}
+            </h3>
+            <ul className="list-disc pl-5 space-y-1 text-xs text-text-secondary">
+              <li>{t("contribute.ethicsWatermark")}</li>
+              <li>{t("contribute.ethicsLicense")}</li>
+              <li>{t("contribute.ethicsConsent")}</li>
+              <li>{t("contribute.ethicsNoPersonalData")}</li>
+            </ul>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border-secondary accent-accent"
+              />
+              <span className="text-xs text-text-secondary">
+                {t("contribute.acceptTerms")}
+              </span>
+            </label>
+          </div>
+
           {/* Generate ZIP */}
           <div className="rounded-lg border border-border-secondary bg-bg-secondary p-4">
             <Button
               variant="primary"
               onClick={generateZip}
-              disabled={!imageBytes || !contributorName.trim() || generating}
+              disabled={!imageBytes || !contributorName.trim() || !acceptedTerms || generating}
               className="w-full"
             >
               {generating ? (

@@ -45,6 +45,17 @@ const router = createHashRouter([
           import("@/pages/ContributeFinding").then((m) => ({ Component: m.ContributeFinding })),
       },
       {
+        path: "education",
+        lazy: () => import("@/pages/Education").then((m) => ({ Component: m.Education })),
+      },
+      {
+        path: "animation-editor",
+        lazy: () =>
+          import("@/pages/AnimationEditorPage").then((m) => ({
+            Component: m.AnimationEditorPage,
+          })),
+      },
+      {
         path: "settings",
         lazy: () => import("@/pages/Settings").then((m) => ({ Component: m.Settings })),
       },

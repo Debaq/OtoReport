@@ -65,6 +65,18 @@ pub fn run() {
             commands::findings_cache::save_finding_image,
             commands::findings_cache::load_finding_image,
             commands::findings_cache::clear_findings_cache,
+            commands::edu_cache::get_edu_cache_meta,
+            commands::edu_cache::save_edu_cache_meta,
+            commands::edu_cache::save_edu_image,
+            commands::edu_cache::load_edu_image,
+            commands::edu_cache::list_edu_images,
+            commands::edu_cache::save_edu_animation,
+            commands::edu_cache::load_edu_animation,
+            commands::edu_cache::list_edu_animations,
+            commands::edu_anim::save_user_animation,
+            commands::edu_anim::load_user_animation,
+            commands::edu_anim::list_user_animations,
+            commands::edu_anim::delete_user_animation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,4 +1,6 @@
 pub mod contribute;
+pub mod edu_anim;
+pub mod edu_cache;
 pub mod export;
 pub mod findings_cache;
 pub mod images;
