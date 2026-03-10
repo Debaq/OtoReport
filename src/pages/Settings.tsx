@@ -67,6 +67,7 @@ const defaultConfig: WorkspaceConfig = {
   theme_color: "blue",
   section_order: DEFAULT_SECTION_ORDER,
   app_theme: "dracula",
+  id_type: "rut_id_dni",
 };
 
 const THEMES: Record<string, { primary: string; dark: string; label: string }> = {
@@ -351,7 +352,7 @@ function PdfMockupContent({ form, logoPreview, scale = 1 }: { form: WorkspaceCon
                 </div>
                 <div className="space-y-px text-gray-500">
                   <div><span className="font-semibold text-gray-600">{t("patients.name")}:</span> Juan Pérez</div>
-                  <div><span className="font-semibold text-gray-600">{t("patients.rut")}:</span> 12.345.678-9</div>
+                  <div><span className="font-semibold text-gray-600">{t(`patients.idLabel.${form.id_type || "rut_id_dni"}`)}:</span> 12.345.678-9</div>
                   <div><span className="font-semibold text-gray-600">{t("patients.age")}:</span> 45 {t("patients.ageYears")}</div>
                 </div>
               </div>
@@ -976,6 +977,30 @@ export function Settings() {
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Tipo de identificación */}
+              <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6">
+                <h3 className="mb-1 text-lg font-semibold text-text-primary">
+                  {t("settings.idType.title")}
+                </h3>
+                <p className="mb-4 text-sm text-text-tertiary">{t("settings.idType.description")}</p>
+                <div className="grid grid-cols-4 gap-3">
+                  {(["rut_id_dni", "rut", "id", "dni"] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => updateField("id_type", type)}
+                      className={`rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors ${
+                        (form.id_type || "rut_id_dni") === type
+                          ? "border-accent bg-accent-subtle text-accent-text"
+                          : "border-border-secondary text-text-secondary hover:border-border-primary"
+                      }`}
+                    >
+                      {t(`settings.idType.${type}`)}
+                    </button>
+                  ))}
                 </div>
               </div>
 

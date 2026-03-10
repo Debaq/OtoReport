@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { formatRut, cleanRut, validateRut, calculateAge } from "@/lib/utils";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import type { Patient } from "@/types";
 
 /** DD-MM-YYYY → YYYY-MM-DD */
@@ -46,6 +47,8 @@ interface PatientFormProps {
 
 export function PatientForm({ patient, onSave, onCancel }: PatientFormProps) {
   const { t } = useTranslation();
+  const { config } = useWorkspace();
+  const idLabel = t(`patients.idLabel.${config?.id_type || "rut_id_dni"}`);
 
   const schema = z.object({
     name: z.string().min(2, t("patients.form.nameRequired")),
@@ -107,7 +110,7 @@ export function PatientForm({ patient, onSave, onCancel }: PatientFormProps) {
         error={errors.name?.message}
       />
       <Input
-        label={t("patients.rut")}
+        label={idLabel}
         id="rut"
         {...register("rut")}
         error={errors.rut?.message}

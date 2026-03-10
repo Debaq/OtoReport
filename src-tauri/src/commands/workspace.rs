@@ -77,6 +77,7 @@ pub struct UserProfile {
     pub section_order: Vec<String>,
     pub findings_categories: Vec<FindingsCategoryConfig>,
     pub app_theme: String,
+    pub id_type: String,
 }
 
 impl Default for UserProfile {
@@ -123,6 +124,7 @@ impl Default for UserProfile {
             ],
             findings_categories: Vec::new(),
             app_theme: "dracula".to_string(),
+            id_type: "rut_id_dni".to_string(),
         }
     }
 }
@@ -229,6 +231,7 @@ pub struct WorkspaceConfig {
     pub section_order: Vec<String>,
     pub findings_categories: Vec<FindingsCategoryConfig>,
     pub app_theme: String,
+    pub id_type: String,
 }
 
 impl Default for WorkspaceConfig {
@@ -272,6 +275,7 @@ impl Default for WorkspaceConfig {
             ],
             findings_categories: Vec::new(),
             app_theme: "dracula".to_string(),
+            id_type: "rut_id_dni".to_string(),
         }
     }
 }
@@ -369,6 +373,7 @@ fn migrate_legacy_config(_app: &tauri::AppHandle, config_path: &PathBuf, content
         },
         findings_categories: legacy.findings_categories,
         app_theme: "dracula".to_string(),
+        id_type: "rut_id_dni".to_string(),
     };
 
     // Guardar perfil en workspace/profiles.json
@@ -464,6 +469,7 @@ pub fn get_workspace_config(app: tauri::AppHandle) -> Result<WorkspaceConfig, St
         section_order: profile.section_order,
         findings_categories: profile.findings_categories,
         app_theme: profile.app_theme,
+        id_type: profile.id_type,
     })
 }
 
@@ -508,6 +514,7 @@ pub fn save_workspace_config(app: tauri::AppHandle, config: WorkspaceConfig) -> 
             profile.section_order = config.section_order;
             profile.findings_categories = config.findings_categories;
             profile.app_theme = config.app_theme;
+            profile.id_type = config.id_type;
             save_profiles_data(&app_config.workspace_path, &profiles_data)?;
         }
     }

@@ -68,7 +68,10 @@ export interface UserProfile {
   section_order: string[];
   findings_categories?: FindingsCategoryConfig[];
   app_theme: string;
+  id_type: string;
 }
+
+export type IdType = "rut_id_dni" | "rut" | "id" | "dni";
 
 export const PROFILE_COLORS = [
   "#3B82F6", "#EF4444", "#10B981", "#F59E0B",
@@ -103,6 +106,7 @@ export interface WorkspaceConfig {
   section_order: string[];
   findings_categories?: FindingsCategoryConfig[];
   app_theme: string;
+  id_type: string;
 }
 
 export interface FindingCheckConfig {

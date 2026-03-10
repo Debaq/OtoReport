@@ -145,6 +145,14 @@
       "notConfigured": "Not configured",
       "change": "Change"
     },
+    "idType": {
+      "title": "Patient identification type",
+      "description": "Select which identification type you will use in your sessions.",
+      "rut_id_dni": "RUT / ID / DNI (all)",
+      "rut": "RUT",
+      "id": "ID",
+      "dni": "DNI"
+    },
     "center": {
       "title": "Health Center & Examiner",
       "name": "Center name",
@@ -267,6 +275,12 @@
     "title": "Patients",
     "name": "Name",
     "rut": "ID / RUT / DNI",
+    "idLabel": {
+      "rut_id_dni": "RUT / ID / DNI",
+      "rut": "RUT",
+      "id": "ID",
+      "dni": "DNI"
+    },
     "age": "Age",
     "ageYears": "years",
     "phone": "Phone",

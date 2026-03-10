@@ -5,6 +5,7 @@ import type { Report, EarData, SessionInfo, Patient, FindingsCategoryConfig, Rep
 import { DEFAULT_EAR_FINDINGS } from "@/types/findings";
 import { getDefaultFindingsCategories, translateFindingsCategories } from "@/types/report";
 import { useWorkspace } from "./useWorkspace";
+import { calculateAge } from "@/lib/utils";
 
 function createEmptyEarData(): EarData {
   return {
@@ -98,6 +99,10 @@ export function useReports() {
         patientId,
         sessionId,
       });
+      // Recalcular edad desde fecha de nacimiento para corregir valores obsoletos
+      if (r.patient.birth_date) {
+        r.patient.age = calculateAge(r.patient.birth_date);
+      }
       setReport(r);
       return r;
     },

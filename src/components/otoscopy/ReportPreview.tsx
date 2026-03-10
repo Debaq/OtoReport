@@ -41,6 +41,7 @@ const defaultConfig: WorkspaceConfig = {
   theme_color: "blue",
   section_order: [],
   app_theme: "dracula",
+  id_type: "rut_id_dni",
 };
 
 interface ReportPreviewProps {

@@ -145,6 +145,14 @@
       "notConfigured": "No configurado",
       "change": "Cambiar"
     },
+    "idType": {
+      "title": "Tipo de identificación del paciente",
+      "description": "Selecciona qué tipo de identificación usarás en tus sesiones.",
+      "rut_id_dni": "RUT / ID / DNI (todos)",
+      "rut": "RUT",
+      "id": "ID",
+      "dni": "DNI"
+    },
     "center": {
       "title": "Centro de Salud y Examinador",
       "name": "Nombre del centro",
@@ -267,6 +275,12 @@
     "title": "Pacientes",
     "name": "Nombre",
     "rut": "RUT / ID / DNI",
+    "idLabel": {
+      "rut_id_dni": "RUT / ID / DNI",
+      "rut": "RUT",
+      "id": "ID",
+      "dni": "DNI"
+    },
     "age": "Edad",
     "ageYears": "años",
     "phone": "Teléfono",

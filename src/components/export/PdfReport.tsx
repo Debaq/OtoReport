@@ -438,7 +438,7 @@ export function PdfReport({
             <Text style={styles.value}>{report.patient.name}</Text>
           </View>
           <View style={styles.row}>
-            <Text style={styles.label}>{i18n.t("patients.rut")}:</Text>
+            <Text style={styles.label}>{i18n.t(`patients.idLabel.${config.id_type || "rut_id_dni"}`)}:</Text>
             <Text style={styles.value}>{report.patient.rut}</Text>
           </View>
           <View style={styles.row}>

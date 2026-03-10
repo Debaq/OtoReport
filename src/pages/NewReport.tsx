@@ -34,7 +34,8 @@ export function NewReport() {
   const { report, createSession, updateReport, loadReport, flushSave } =
     useReports();
   const { allPatients } = usePatients();
-  useWorkspace();
+  const { config } = useWorkspace();
+  const idLabel = t(`patients.idLabel.${config?.id_type || "rut_id_dni"}`);
   const { toast } = useToast();
 
   // Patient inline state
@@ -196,7 +197,7 @@ export function NewReport() {
               {/* RUT con dropdown de sugerencias */}
               <div className="relative" ref={wrapperRef}>
                 <Input
-                  label={t("patients.rut")}
+                  label={idLabel}
                   id="rut"
                   value={isChileanRut ? formatRut(rutInput) : rutInput}
                   onChange={(e) => handleRutChange(e.target.value)}

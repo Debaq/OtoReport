@@ -162,6 +162,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           images_per_row: 3,
           theme_color: "blue",
           app_theme: "dracula",
+          id_type: "rut_id_dni",
           section_order: [
             "header", "patient_info", "exam_info", "diagram",
             "findings", "observations", "images", "annotations",
@@ -243,6 +244,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       images_per_row: 3,
       theme_color: "blue",
       app_theme: "dracula",
+      id_type: "rut_id_dni",
       section_order: [
         "header", "patient_info", "exam_info", "diagram",
         "findings", "observations", "images", "annotations",

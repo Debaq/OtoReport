@@ -16,6 +16,7 @@ import {
   FileText,
   Pencil,
 } from "lucide-react";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import type { Patient, SessionInfo } from "@/types";
 
 export function PatientDetail() {
@@ -23,6 +24,8 @@ export function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { config } = useWorkspace();
+  const idLabel = t(`patients.idLabel.${config?.id_type || "rut_id_dni"}`);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -139,7 +142,7 @@ export function PatientDetail() {
         <div className="mb-6 rounded-xl border border-border-secondary bg-bg-secondary p-4">
           <div className="grid grid-cols-4 gap-4 text-sm">
             <div>
-              <span className="text-xs font-medium text-text-tertiary">{t("patients.rut")}</span>
+              <span className="text-xs font-medium text-text-tertiary">{idLabel}</span>
               <p className="text-text-primary">{patient.rut}</p>
             </div>
             <div>

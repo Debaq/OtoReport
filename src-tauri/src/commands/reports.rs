@@ -323,6 +323,13 @@ pub fn duplicate_session(
             report.status = default_status();
             report.created_at = chrono_now();
             report.updated_at = chrono_now();
+            // Recalcular edad desde fecha de nacimiento del paciente actual
+            if let Ok(patient) = json_store::read_json::<crate::commands::patients::Patient>(
+                &src.parent().unwrap().parent().unwrap().join("patient.json"),
+            ) {
+                report.patient.age = calculate_age(&patient.birth_date);
+                report.patient.birth_date = patient.birth_date;
+            }
             let _ = json_store::write_json(&report_path, &report);
         }
     }
@@ -374,6 +381,48 @@ pub fn import_session_ears(
     copy_dir_recursive(&src_left, &dest_left)?;
 
     Ok(())
+}
+
+fn calculate_age(birth_date: &str) -> i32 {
+    // Parse YYYY-MM-DD
+    let parts: Vec<&str> = birth_date.split('-').collect();
+    if parts.len() != 3 {
+        return 0;
+    }
+    let (by, bm, bd) = match (
+        parts[0].parse::<i32>(),
+        parts[1].parse::<u32>(),
+        parts[2].parse::<u32>(),
+    ) {
+        (Ok(y), Ok(m), Ok(d)) => (y, m, d),
+        _ => return 0,
+    };
+
+    // Obtener fecha actual usando el timestamp del sistema
+    // Usamos una fórmula civil para convertir días desde epoch a fecha
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let days = (secs / 86400) as i32;
+    // Algoritmo de conversión de días julianos a fecha civil
+    // Basado en: http://howardhinnant.github.io/date_algorithms.html
+    let z = days + 719468;
+    let era = if z >= 0 { z } else { z - 146096 } / 146097;
+    let doe = (z - era * 146097) as u32;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe as i32 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = if m <= 2 { y + 1 } else { y };
+
+    let mut age = year - by;
+    if m < bm || (m == bm && d < bd) {
+        age -= 1;
+    }
+    age
 }
 
 fn chrono_now() -> String {
