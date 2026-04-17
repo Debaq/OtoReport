@@ -52,6 +52,11 @@ export function ReportHistory() {
                       {t("history.wash")}
                     </span>
                   )}
+                  {s.report_type === "audiometry" && (
+                    <span className="rounded-full bg-purple-500/15 px-2 py-0.5 text-xs font-medium text-purple-400">
+                      {t("history.audiometry")}
+                    </span>
+                  )}
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                       s.status === "completed"
@@ -64,11 +69,10 @@ export function ReportHistory() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() =>
-                      navigate(
-                        `/new-report?patient=${s.patient_id}&session=${s.id}`
-                      )
-                    }
+                    onClick={() => {
+                      const base = s.report_type === "audiometry" ? "/new-audiometry" : "/new-report";
+                      navigate(`${base}?patient=${s.patient_id}&session=${s.id}`);
+                    }}
                   >
                     <Eye size={16} />
                   </Button>

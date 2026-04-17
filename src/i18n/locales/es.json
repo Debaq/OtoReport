@@ -25,6 +25,7 @@
     "title": "Historial",
     "noSessions": "No hay sesiones registradas",
     "wash": "Lavado",
+    "audiometry": "Audiometría",
     "completed": "Completado",
     "inProgress": "En progreso"
   },
@@ -336,6 +337,7 @@
     "dashboard": "Dashboard",
     "patients": "Pacientes",
     "newReport": "Nuevo Informe",
+    "newAudiometry": "Nueva Audiometría",
     "history": "Historial",
     "findingsLibrary": "Biblioteca de Hallazgos",
     "education": "Material Educativo",

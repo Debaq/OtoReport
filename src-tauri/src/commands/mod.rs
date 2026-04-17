@@ -1,3 +1,4 @@
+pub mod audiometry;
 pub mod contribute;
 pub mod edu_anim;
 pub mod edu_cache;

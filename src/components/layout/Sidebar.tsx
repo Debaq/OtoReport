@@ -8,6 +8,7 @@ import {
   BookOpen,
   GraduationCap,
   Settings,
+  AudioLines,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isBetaEnabled } from "@/hooks/useBetaFeatures";
@@ -23,6 +24,7 @@ export function Sidebar() {
     { type: "link", to: "/", icon: LayoutDashboard, label: t("sidebar.dashboard") },
     { type: "link", to: "/patients", icon: Users, label: t("sidebar.patients") },
     { type: "link", to: "/new-report", icon: FilePlus, label: t("sidebar.newReport") },
+    { type: "link", to: "/new-audiometry", icon: AudioLines, label: t("sidebar.newAudiometry") },
     { type: "link", to: "/history", icon: ClipboardList, label: t("sidebar.history") },
     { type: "separator" },
     { type: "link", to: "/findings-library", icon: BookOpen, label: t("sidebar.findingsLibrary") },

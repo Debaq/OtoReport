@@ -11,11 +11,12 @@ export interface EarData {
 }
 
 export type ReportStatus = "in_progress" | "completed";
-export type ReportType = "otoscopy" | "ear_wash";
+export type ReportType = "otoscopy" | "ear_wash" | "audiometry";
 
 export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   otoscopy: "Otoscopía",
   ear_wash: "Lavado de Oído",
+  audiometry: "Audiometría",
 };
 
 export interface Report {
@@ -69,9 +70,11 @@ export interface UserProfile {
   findings_categories?: FindingsCategoryConfig[];
   app_theme: string;
   id_type: string;
+  audiometry_symbol_set: AudiometrySymbolSet;
 }
 
 export type IdType = "rut_id_dni" | "rut" | "id" | "dni";
+export type AudiometrySymbolSet = "asha" | "chile";
 
 export const PROFILE_COLORS = [
   "#3B82F6", "#EF4444", "#10B981", "#F59E0B",
@@ -107,6 +110,7 @@ export interface WorkspaceConfig {
   findings_categories?: FindingsCategoryConfig[];
   app_theme: string;
   id_type: string;
+  audiometry_symbol_set: AudiometrySymbolSet;
 }
 
 export interface FindingCheckConfig {

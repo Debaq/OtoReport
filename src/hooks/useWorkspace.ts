@@ -163,6 +163,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           theme_color: "blue",
           app_theme: "dracula",
           id_type: "rut_id_dni",
+          audiometry_symbol_set: "asha",
           section_order: [
             "header", "patient_info", "exam_info", "diagram",
             "findings", "observations", "images", "annotations",
@@ -245,6 +246,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       theme_color: "blue",
       app_theme: "dracula",
       id_type: "rut_id_dni",
+      audiometry_symbol_set: "asha",
       section_order: [
         "header", "patient_info", "exam_info", "diagram",
         "findings", "observations", "images", "annotations",

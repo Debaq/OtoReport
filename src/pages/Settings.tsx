@@ -68,6 +68,7 @@ const defaultConfig: WorkspaceConfig = {
   section_order: DEFAULT_SECTION_ORDER,
   app_theme: "dracula",
   id_type: "rut_id_dni",
+  audiometry_symbol_set: "asha",
 };
 
 const THEMES: Record<string, { primary: string; dark: string; label: string }> = {
@@ -977,6 +978,30 @@ export function Settings() {
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Simbología de audiometría */}
+              <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6">
+                <h3 className="mb-1 text-lg font-semibold text-text-primary">Simbología de audiometría</h3>
+                <p className="mb-4 text-sm text-text-tertiary">
+                  Conjunto de símbolos usado en el audiograma y en el PDF. Por ahora solo cambia el símbolo LDL.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {(["asha", "chile"] as const).map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => updateField("audiometry_symbol_set", opt)}
+                      className={`rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors ${
+                        (form.audiometry_symbol_set || "asha") === opt
+                          ? "border-accent bg-accent-subtle text-accent-text"
+                          : "border-border-secondary text-text-secondary hover:border-border-primary"
+                      }`}
+                    >
+                      {opt === "asha" ? "ASHA (LDL = U)" : "Chile (LDL = ◁ / ▷)"}
+                    </button>
+                  ))}
                 </div>
               </div>
 

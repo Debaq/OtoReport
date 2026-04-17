@@ -42,6 +42,7 @@ const defaultConfig: WorkspaceConfig = {
   section_order: [],
   app_theme: "dracula",
   id_type: "rut_id_dni",
+  audiometry_symbol_set: "asha",
 };
 
 interface ReportPreviewProps {

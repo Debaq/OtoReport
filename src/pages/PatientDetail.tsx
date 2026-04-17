@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   FileText,
   Pencil,
+  AudioLines,
 } from "lucide-react";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import type { Patient, SessionInfo } from "@/types";
@@ -135,6 +136,13 @@ export function PatientDetail() {
               <FilePlus size={14} />
               {t("sidebar.newReport")}
             </Button>
+            <Button
+              size="sm"
+              onClick={() => navigate(`/new-audiometry?patient=${patient.id}`)}
+            >
+              <AudioLines size={14} />
+              {t("sidebar.newAudiometry")}
+            </Button>
           </div>
         </div>
 
@@ -187,7 +195,7 @@ export function PatientDetail() {
                 className="flex cursor-pointer items-center justify-between rounded-lg border border-border-secondary bg-bg-secondary px-4 py-3 transition-shadow hover:shadow-sm"
                 onClick={() =>
                   navigate(
-                    `/new-report?patient=${s.patient_id}&session=${s.id}`
+                    `/${s.report_type === "audiometry" ? "new-audiometry" : "new-report"}?patient=${s.patient_id}&session=${s.id}`
                   )
                 }
               >

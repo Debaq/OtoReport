@@ -210,11 +210,23 @@ pub fn list_sessions(app: tauri::AppHandle) -> Result<Vec<SessionInfo>, String> 
 
         let session_ids = file_manager::list_dirs(&sessions_dir)?;
         for sid in session_ids {
-            let report_path = sessions_dir.join(&sid).join("report.json");
+            let session_dir = sessions_dir.join(&sid);
+            let report_path = session_dir.join("report.json");
+            let audio_path = session_dir.join("audiometry.json");
             let (created_at, status, report_type) = if report_path.exists() {
                 json_store::read_json::<Report>(&report_path)
                     .map(|r| (r.created_at, r.status, r.report_type))
                     .unwrap_or_else(|_| (sid.clone(), default_status(), default_report_type()))
+            } else if audio_path.exists() {
+                json_store::read_json::<serde_json::Value>(&audio_path)
+                    .map(|v| {
+                        (
+                            v.get("created_at").and_then(|s| s.as_str()).unwrap_or(&sid).to_string(),
+                            v.get("status").and_then(|s| s.as_str()).unwrap_or("in_progress").to_string(),
+                            "audiometry".to_string(),
+                        )
+                    })
+                    .unwrap_or_else(|_| (sid.clone(), default_status(), "audiometry".to_string()))
             } else {
                 (sid.clone(), default_status(), default_report_type())
             };
@@ -262,11 +274,23 @@ pub fn list_patient_sessions(
     let session_ids = file_manager::list_dirs(&sessions_dir)?;
 
     for sid in session_ids {
-        let report_path = sessions_dir.join(&sid).join("report.json");
+        let session_dir = sessions_dir.join(&sid);
+        let report_path = session_dir.join("report.json");
+        let audio_path = session_dir.join("audiometry.json");
         let (created_at, status, report_type) = if report_path.exists() {
             json_store::read_json::<Report>(&report_path)
                 .map(|r| (r.created_at, r.status, r.report_type))
                 .unwrap_or_else(|_| (sid.clone(), default_status(), default_report_type()))
+        } else if audio_path.exists() {
+            json_store::read_json::<serde_json::Value>(&audio_path)
+                .map(|v| {
+                    (
+                        v.get("created_at").and_then(|s| s.as_str()).unwrap_or(&sid).to_string(),
+                        v.get("status").and_then(|s| s.as_str()).unwrap_or("in_progress").to_string(),
+                        "audiometry".to_string(),
+                    )
+                })
+                .unwrap_or_else(|_| (sid.clone(), default_status(), "audiometry".to_string()))
         } else {
             (sid.clone(), default_status(), default_report_type())
         };

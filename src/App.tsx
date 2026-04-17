@@ -30,6 +30,10 @@ const router = createHashRouter([
         lazy: () => import("@/pages/NewReport").then((m) => ({ Component: m.NewReport })),
       },
       {
+        path: "new-audiometry",
+        lazy: () => import("@/pages/NewAudiometry").then((m) => ({ Component: m.NewAudiometry })),
+      },
+      {
         path: "history",
         lazy: () =>
           import("@/pages/ReportHistory").then((m) => ({ Component: m.ReportHistory })),
