@@ -5,9 +5,10 @@
 
   **Professional otoscopy reporting software for healthcare centers**
 
-  [![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/nicovlkk/otoreport/releases)
+  [![Version](https://img.shields.io/badge/version-1.1.0-blue)](https://github.com/Debaq/OtoReport/releases)
   [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android-lightgrey)](#download)
   [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+  [![DOI](https://zenodo.org/badge/1172748518.svg)](https://doi.org/10.5281/zenodo.19664603)
 </div>
 
 ---
