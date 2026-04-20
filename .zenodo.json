@@ -1,0 +1,35 @@
+{
+  "title": "OtoReport: Professional otoscopy and audiometry reporting software",
+  "description": "Desktop and mobile application for nurses, audiologists, and general practitioners to create otoscopy and ear-wash reports, manage patients, capture and annotate images, perform audiometry with ASHA/Chile symbology, and export professional PDF documents — offline-first.",
+  "creators": [
+    {
+      "name": "Baier Quezada, Nicolás",
+      "affiliation": "TecMedHub",
+      "orcid": "0000-0003-2818-0990"
+    }
+  ],
+  "upload_type": "software",
+  "license": "MIT",
+  "access_right": "open",
+  "keywords": [
+    "otoscopy",
+    "audiometry",
+    "medical software",
+    "healthcare",
+    "electronic health records",
+    "Tauri",
+    "React",
+    "Rust",
+    "offline-first",
+    "ASHA",
+    "Chile"
+  ],
+  "language": "spa",
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/debaq/OtoReport",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}
