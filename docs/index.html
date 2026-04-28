@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OtoReport — Reportes profesionales de otoscopía</title>
+  <meta name="description" content="Aplicación de escritorio y móvil para generar reportes de otoscopía y lavado de oído. Gestión de pacientes, captura y anotación de imágenes, exportación a PDF. Offline-first, open source.">
+  <meta name="keywords" content="otoscopía, lavado de oído, reporte clínico, audiología, enfermería, otorrinolaringología, Tauri, open source, PDF, OtoReport">
+  <meta name="author" content="Nicolás Baier Quezada">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://tmeduca.org/otoreport/">
+  <link rel="icon" type="image/png" href="img/logo.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://tmeduca.org/otoreport/">
+  <meta property="og:title" content="OtoReport — Reportes profesionales de otoscopía">
+  <meta property="og:description" content="Reportes de otoscopía y lavado de oído. Gestión de pacientes, anotación de imágenes y exportación PDF. Desktop + móvil. Open source.">
+  <meta property="og:image" content="https://tmeduca.org/otoreport/img/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="es_CL">
+  <meta property="og:site_name" content="OtoReport">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="OtoReport — Reportes profesionales de otoscopía">
+  <meta name="twitter:description" content="Reportes de otoscopía y lavado de oído con captura, anotación y PDF. Desktop + móvil. Open source.">
+  <meta name="twitter:image" content="https://tmeduca.org/otoreport/img/og-image.jpg">
+
+  <!-- Schema.org JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "OtoReport",
+    "url": "https://tmeduca.org/otoreport/",
+    "description": "Software para reportes de otoscopía y lavado de oído. Gestión de pacientes, anotación de imágenes y exportación PDF.",
+    "applicationCategory": "MedicalApplication",
+    "operatingSystem": "Windows, macOS, Linux, Android",
+    "author": {
+      "@type": "Person",
+      "name": "Nicolás Baier Quezada",
+      "affiliation": {
+        "@type": "EducationalOrganization",
+        "name": "Universidad Austral de Chile"
+      }
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "license": "https://github.com/Debaq/OtoReport/blob/main/LICENSE",
+    "codeRepository": "https://github.com/Debaq/OtoReport"
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Paleta OtoReport — Dracula */
+      --bg: #282a36;
+      --bg-subtle: #21222c;
+      --surface: rgba(255,255,255,0.04);
+      --surface-hover: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.08);
+      --border-accent: rgba(189,147,249,0.3);
+      --text: #f8f8f2;
+      --text-secondary: #cfd0d4;
+      --text-dim: #6272a4;
+
+      /* Púrpura Dracula — primary */
+      --primary: #bd93f9;
+      --primary-bright: #d4b3ff;
+      --primary-glow: rgba(189,147,249,0.18);
+
+      /* Rosa Dracula — accent */
+      --accent: #ff79c6;
+      --accent-bright: #ffa3d8;
+      --accent-deep: #d65aa1;
+
+      --gradient-1: #bd93f9;
+      --gradient-2: #8be9fd;
+      --gradient-3: #ff79c6;
+      --green: #50fa7b;
+      --amber: #f1fa8c;
+      --red: #ff5555;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--primary-bright); text-decoration: none; transition: color 0.2s; }
+    a:hover { color: #fff; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes glow-pulse {
+      0%, 100% { opacity: 0.4; }
+      50%      { opacity: 0.7; }
+    }
+    .animate-in {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .animate-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 1rem 0;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(40,42,54,0.82);
+      border-bottom: 1px solid var(--border);
+      transition: padding 0.3s;
+    }
+    nav.scrolled { padding: 0.6rem 0; }
+    nav .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo {
+      font-weight: 800;
+      font-size: 1.35rem;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .logo img { height: 28px; width: 28px; }
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+    .nav-links a {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: #fff; }
+    .nav-cta {
+      background: linear-gradient(135deg, var(--primary), var(--primary-bright)) !important;
+      color: #1a1322 !important;
+      -webkit-text-fill-color: #1a1322 !important;
+      padding: 0.5rem 1.25rem !important;
+      border-radius: 8px;
+      font-weight: 700 !important;
+      font-size: 0.85rem !important;
+      transition: opacity 0.2s, transform 0.2s !important;
+    }
+    .nav-cta:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    /* HERO */
+    .hero {
+      position: relative;
+      padding: 10rem 0 6rem;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -40%; left: 50%;
+      transform: translateX(-50%);
+      width: 800px; height: 800px;
+      background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+      animation: glow-pulse 6s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: 10%; right: -10%;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(255,121,198,0.10) 0%, transparent 70%);
+      animation: glow-pulse 8s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border-accent);
+      border-radius: 99px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--primary-bright);
+      margin-bottom: 2rem;
+      animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+      position: relative;
+      z-index: 2;
+    }
+    .hero-badge .dot {
+      width: 6px; height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: glow-pulse 2s infinite;
+    }
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+      animation: fade-up 0.8s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+      position: relative;
+      z-index: 2;
+    }
+    .hero h1 .gradient-text {
+      background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2), var(--gradient-3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero .subtitle {
+      font-size: 1.2rem;
+      color: var(--text-secondary);
+      max-width: 640px;
+      margin: 0 auto 2.5rem;
+      line-height: 1.8;
+      animation: fade-up 0.8s 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+      position: relative;
+      z-index: 2;
+    }
+    .hero-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      animation: fade-up 0.8s 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+      position: relative;
+      z-index: 2;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.85rem 2rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      font-family: inherit;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-bright));
+      color: #1a1322;
+      box-shadow: 0 0 30px rgba(189,147,249,0.35);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 40px rgba(189,147,249,0.55);
+      color: #1a1322;
+    }
+    .btn-accent {
+      background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+      color: #2a0a1c;
+      box-shadow: 0 0 30px rgba(255,121,198,0.3);
+    }
+    .btn-accent:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 40px rgba(255,121,198,0.5);
+      color: #2a0a1c;
+    }
+    .btn-ghost {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+    }
+    .btn-ghost:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+      color: #fff;
+    }
+    .btn svg { width: 18px; height: 18px; }
+
+    .hero-stack {
+      margin-top: 3rem;
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      animation: fade-up 0.8s 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+      position: relative;
+      z-index: 2;
+    }
+    .hero-stack span {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* HERO SCREENSHOT */
+    .hero-screenshot {
+      margin-top: 4rem;
+      animation: fade-up 1s 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+      position: relative;
+      z-index: 2;
+    }
+    .hero-screenshot::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--gradient-1), var(--gradient-3));
+      opacity: 0.35;
+      z-index: -1;
+      filter: blur(1px);
+    }
+    .screenshot-frame {
+      background: #1c1d27;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 40px 80px rgba(0,0,0,0.5), 0 0 80px rgba(189,147,249,0.10);
+    }
+    .screenshot-titlebar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 14px;
+      background: rgba(0,0,0,0.4);
+      border-bottom: 1px solid var(--border);
+    }
+    .screenshot-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    .screenshot-dot:nth-child(1) { background: #ff5555; }
+    .screenshot-dot:nth-child(2) { background: #f1fa8c; }
+    .screenshot-dot:nth-child(3) { background: #50fa7b; }
+    .screenshot-titlebar span {
+      margin-left: 8px;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+    .screenshot-frame img {
+      width: 100%;
+      display: block;
+    }
+    .screenshot-placeholder {
+      width: 100%;
+      aspect-ratio: 16/9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      background: linear-gradient(135deg, #1c1d27, #2a2c3a);
+    }
+
+    /* SHOWCASE */
+    .showcase {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+    .showcase.reverse { direction: rtl; }
+    .showcase.reverse > * { direction: ltr; }
+    .showcase-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--primary-bright);
+      margin-bottom: 0.75rem;
+    }
+    .showcase-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+    }
+    .showcase-desc {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      line-height: 1.75;
+    }
+    .showcase-img {
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .showcase-img:hover { transform: scale(1.02); }
+    .showcase-img img { width: 100%; display: block; }
+    .showcase-img .screenshot-placeholder { aspect-ratio: 4/3; }
+
+    @media (max-width: 768px) {
+      .showcase { grid-template-columns: 1fr; gap: 2rem; }
+      .showcase.reverse { direction: ltr; }
+      .hero-screenshot { margin-top: 2.5rem; }
+    }
+
+    /* SECTIONS */
+    section { padding: 5rem 0; }
+    .section-header {
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+    .section-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--primary-bright);
+      margin-bottom: 0.75rem;
+    }
+    .section-title {
+      font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .section-subtitle {
+      margin-top: 1rem;
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* FEATURES */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .feature-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+    .feature-card:hover::before { opacity: 1; }
+    .feature-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+      background: var(--primary-glow);
+    }
+    .feature-icon svg { width: 22px; height: 22px; color: var(--primary-bright); }
+    .feature-card h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+      letter-spacing: -0.01em;
+    }
+    .feature-card p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+
+    /* PLATFORMS */
+    .platforms-section { background: var(--bg-subtle); }
+    .platforms-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .platform-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+    .platform-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-3px);
+    }
+    .platform-card svg {
+      width: 32px; height: 32px;
+      color: var(--primary-bright);
+      margin-bottom: 0.6rem;
+    }
+    .platform-card .name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+    .platform-card .fmt {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: ui-monospace, monospace;
+    }
+    .platform-card .status {
+      margin-top: 0.6rem;
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .status-ready { background: rgba(80,250,123,0.14); color: var(--green); }
+    .status-soon  { background: rgba(241,250,140,0.14); color: var(--amber); }
+    .platform-card.soon { opacity: 0.75; }
+    .platform-card.soon svg { opacity: 0.7; }
+    @media (max-width: 720px) {
+      .platforms-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* RELEASES */
+    .releases-section { border-top: 1px solid var(--border); }
+    #releases-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .release-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      transition: border-color 0.3s;
+    }
+    .release-card:hover { border-color: var(--border-accent); }
+    .release-card.is-latest {
+      border-color: rgba(80,250,123,0.3);
+      background: rgba(80,250,123,0.04);
+    }
+    .release-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .release-title-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .release-tag { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
+    .release-date { font-size: 0.85rem; color: var(--text-dim); font-weight: 500; }
+    .release-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.25rem 0.75rem;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .badge-latest { background: rgba(80,250,123,0.14); color: var(--green); }
+    .badge-pre { background: rgba(241,250,140,0.14); color: var(--amber); }
+    .release-body {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.25rem;
+      white-space: pre-wrap;
+      max-height: 160px;
+      overflow: hidden;
+      line-height: 1.7;
+      mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+    }
+    .release-body h2, .release-body h3, .release-body h4 {
+      color: var(--text); margin: 1rem 0 0.5rem; font-size: 1rem; font-weight: 700;
+    }
+    .release-body h2:first-child, .release-body h3:first-child { margin-top: 0; }
+    .release-body ul, .release-body ol { padding-left: 1.25rem; margin: 0.5rem 0; }
+    .release-body li { margin: 0.25rem 0; }
+    .release-body strong { color: var(--text); }
+    .release-body code {
+      background: rgba(255,255,255,0.06);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+    .release-body a { color: var(--primary-bright); }
+    .release-assets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+    .asset-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 1.1rem;
+      background: var(--surface-hover);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.2s;
+    }
+    .asset-btn:hover {
+      border-color: var(--primary);
+      background: var(--primary-glow);
+      color: #fff;
+    }
+    .asset-btn svg { width: 16px; height: 16px; opacity: 0.8; }
+    .asset-size { color: var(--text-dim); font-size: 0.75rem; }
+    .release-link {
+      display: inline-block;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    .no-releases, .loading {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    /* INSTITUTIONAL */
+    .institutional {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      padding: 2.5rem 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .institutional-logo { height: 90px; transition: opacity 0.3s; }
+    .institutional-text {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      max-width: 460px;
+      line-height: 1.6;
+    }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 0;
+      margin-top: 1rem;
+    }
+    .footer-grid {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 2rem;
+    }
+    .footer-brand .logo { font-size: 1.2rem; }
+    .footer-brand p {
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      max-width: 320px;
+    }
+    .footer-col h4 {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-secondary);
+      margin-bottom: 0.75rem;
+    }
+    .footer-col a {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      padding: 0.25rem 0;
+      transition: color 0.2s;
+    }
+    .footer-col a:hover { color: var(--text); }
+    .footer-bottom {
+      margin-top: 2.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+    .disclaimer {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1rem 1.25rem;
+      background: rgba(255,85,85,0.06);
+      border: 1px solid rgba(255,85,85,0.2);
+      border-radius: 10px;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+      text-align: center;
+    }
+    .disclaimer b { color: var(--red); }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .features-grid { grid-template-columns: 1fr; }
+      .hero { padding: 8rem 0 4rem; }
+      .nav-links a:not(.nav-cta) { display: none; }
+      section { padding: 3.5rem 0; }
+      .footer-grid { flex-direction: column; }
+      .institutional { flex-direction: column; text-align: center; }
+    }
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* LIGHTBOX */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+      cursor: zoom-out;
+    }
+    .lightbox.open { opacity: 1; visibility: visible; }
+    .lightbox img {
+      max-width: 90vw;
+      max-height: 90vh;
+      border-radius: 12px;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+      transform: scale(0.92);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .lightbox.open img { transform: scale(1); }
+    .lightbox-close {
+      position: absolute;
+      top: 1.5rem; right: 1.5rem;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 1.25rem;
+      transition: background 0.2s;
+    }
+    .lightbox-close:hover { background: rgba(255,255,255,0.2); }
+    .screenshot-frame img,
+    .showcase-img img { cursor: zoom-in; }
+
+    /* hamburger mobile */
+    .mobile-toggle { display: none; background: none; border: none; color: var(--text); cursor: pointer; padding: 0.5rem; }
+    @media (max-width: 768px) {
+      .mobile-toggle { display: block; }
+      .nav-links { display: none; }
+      .nav-links.open {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 100%; left: 0; right: 0;
+        background: rgba(40,42,54,0.95);
+        backdrop-filter: blur(20px);
+        padding: 1rem 2rem;
+        border-bottom: 1px solid var(--border);
+        gap: 0.5rem;
+      }
+      .nav-links.open a { display: block; padding: 0.5rem 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav id="nav">
+    <div class="container">
+      <span class="logo"><img src="img/logo.png" alt="OtoReport">OtoReport</span>
+      <button class="mobile-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menú">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+      <div class="nav-links">
+        <a href="#caracteristicas">Características</a>
+        <a href="#vistas">Vistas</a>
+        <a href="#plataformas">Plataformas</a>
+        <a href="#descargas">Descargas</a>
+        <a href="https://github.com/Debaq/OtoReport" class="nav-cta">
+          <svg viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;vertical-align:middle;margin-right:2px"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="container">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        Reportes de otoscopía · Offline-first · Open Source
+      </div>
+      <h1>
+        Reportes profesionales de otoscopía<br>
+        <span class="gradient-text">para tu centro de salud</span>
+      </h1>
+      <p class="subtitle">
+        OtoReport gestiona pacientes, captura y anota imágenes del oído, y genera PDFs clínicos listos para entregar. Diseñado para enfermería, audiología y atención primaria. Funciona sin internet en escritorio y móvil.
+      </p>
+      <div class="hero-buttons">
+        <a href="#descargas" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar
+        </a>
+        <a href="https://github.com/Debaq/OtoReport" class="btn btn-ghost">
+          <svg viewBox="0 0 16 16" fill="currentColor" style="width:18px;height:18px"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          Ver código
+        </a>
+        <a href="https://doi.org/10.5281/zenodo.19664603" class="btn btn-accent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          DOI Zenodo
+        </a>
+      </div>
+      <div class="hero-stack">
+        <span>Tauri 2</span>
+        <span>React 19</span>
+        <span>TypeScript</span>
+        <span>Rust</span>
+        <span>Tailwind 4</span>
+        <span>@react-pdf</span>
+      </div>
+
+      <!-- HERO SCREENSHOT -->
+      <div class="hero-screenshot">
+        <div class="screenshot-frame">
+          <div class="screenshot-titlebar">
+            <div class="screenshot-dot"></div>
+            <div class="screenshot-dot"></div>
+            <div class="screenshot-dot"></div>
+            <span>OtoReport</span>
+          </div>
+          <img src="img/profile_1.png" alt="OtoReport — Vista principal" onerror="this.outerHTML='<div class=screenshot-placeholder>Imagen: profile_1.png</div>'">
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- FEATURES -->
+  <section id="caracteristicas">
+    <div class="container">
+      <div class="section-header animate-in">
+        <div class="section-label">Plataforma clínica</div>
+        <h2 class="section-title">Todo el flujo de un examen, en una sola app</h2>
+        <p class="section-subtitle">Desde el ingreso del paciente hasta el PDF firmado. Sin papeles, sin perder imágenes, sin depender de la nube.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card animate-in">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <h3>Gestión de pacientes</h3>
+          <p>Ficha clínica con nombre, fecha de nacimiento, contacto y notas. Búsqueda instantánea e historial completo de sesiones por paciente.</p>
+        </div>
+        <div class="feature-card animate-in">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H5a2 2 0 00-2 2v7h6v-9z"/><path d="M15 11h4a2 2 0 012 2v7h-6v-9z"/><path d="M9 11V5a3 3 0 016 0v6"/></svg>
+          </div>
+          <h3>Otoscopía y lavado</h3>
+          <p>Hallazgos por oído: membrana timpánica, conducto auditivo externo. Reportes de otoscopía y de lavado de oído con comparación pre/post.</p>
+        </div>
+        <div class="feature-card animate-in">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <h3>Captura y anotación</h3>
+          <p>Imágenes desde otoscopio o cámara conectada. Recorte, zoom y dibujo encima de la imagen para señalar zonas de interés.</p>
+        </div>
+        <div class="feature-card animate-in">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <h3>Exportación PDF</h3>
+          <p>PDF con branding del centro (logo, nombre, dirección). Secciones reordenables por drag-and-drop, control del tamaño e imágenes por fila.</p>
+        </div>
+        <div class="feature-card animate-in">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          </div>
+          <h3>Biblioteca de hallazgos</h3>
+          <p>Catálogo visual con imágenes de referencia por categoría (timpánica / conducto). Funciona offline con caché local y sincroniza online.</p>
+        </div>
+        <div class="feature-card animate-in">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="17" cy="7" r="3"/><path d="M22 21v-2a3 3 0 00-2-2.83"/></svg>
+          </div>
+          <h3>Multi-perfil</h3>
+          <p>Varios examinadores en un mismo equipo, cada uno con su configuración, branding y plantilla de hallazgos. Cambio de perfil en un clic.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHOWCASE: PACIENTES -->
+  <section id="vistas" style="background: var(--bg-subtle);">
+    <div class="container">
+      <div class="showcase animate-in">
+        <div class="showcase-text">
+          <div class="showcase-label">Pacientes y sesiones</div>
+          <h3 class="showcase-title">Historial clínico ordenado por persona</h3>
+          <p class="showcase-desc">Cada paciente con su ficha completa y todas sus sesiones de otoscopía y lavado en línea de tiempo. Validación de RUT chileno y autoguardado del reporte mientras escribes.</p>
+        </div>
+        <div class="showcase-img">
+          <img src="img/profile_2.png" alt="Vista de pacientes y sesiones" onerror="this.outerHTML='<div class=screenshot-placeholder>Imagen: profile_2.png</div>'">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHOWCASE: ANOTACIÓN -->
+  <section>
+    <div class="container">
+      <div class="showcase reverse animate-in">
+        <div class="showcase-text">
+          <div class="showcase-label">Anotación de imágenes</div>
+          <h3 class="showcase-title">Marca lo que importa sobre la imagen</h3>
+          <p class="showcase-desc">Captura desde el otoscopio, recorta, ajusta y dibuja directamente sobre la imagen para resaltar perforaciones, cerumen, edema u otorrea. Múltiples imágenes por oído, asociadas a la sesión.</p>
+        </div>
+        <div class="showcase-img">
+          <img src="img/profile_3.png" alt="Anotación de imágenes" onerror="this.outerHTML='<div class=screenshot-placeholder>Imagen: profile_3.png</div>'">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHOWCASE: PDF -->
+  <section style="background: var(--bg-subtle);">
+    <div class="container">
+      <div class="showcase animate-in">
+        <div class="showcase-text">
+          <div class="showcase-label">Reporte final</div>
+          <h3 class="showcase-title">PDF profesional con tu marca</h3>
+          <p class="showcase-desc">Logo y datos de tu centro, secciones reordenables, control del tamaño de imagen y cantidad por fila. Todo configurable por perfil. El PDF queda listo para entregar al paciente o adjuntar a la ficha.</p>
+        </div>
+        <div class="showcase-img">
+          <img src="img/profile_4.png" alt="Reporte PDF generado por OtoReport" onerror="this.outerHTML='<div class=screenshot-placeholder>Imagen: profile_4.png</div>'">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLATFORMS -->
+  <section id="plataformas" class="platforms-section">
+    <div class="container">
+      <div class="section-header animate-in">
+        <div class="section-label">Multiplataforma</div>
+        <h2 class="section-title">En el escritorio del box o en tu celular</h2>
+        <p class="section-subtitle">Mismo flujo, mismos datos en local. Empacado con Tauri 2 para builds nativas livianas.</p>
+      </div>
+      <div class="platforms-grid">
+        <div class="platform-card animate-in">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.45H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.45L0 20.699M10.949 12.6H24V24l-13.051-1.851"/></svg>
+          <div class="name">Windows</div>
+          <div class="fmt">.msi</div>
+          <div class="status status-ready">Disponible</div>
+        </div>
+        <div class="platform-card soon animate-in">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.365 1.43c0 1.14-.43 2.18-1.13 2.95-.84.93-2.21 1.65-3.34 1.56-.14-1.13.42-2.3 1.13-3.04.78-.83 2.13-1.5 3.34-1.47zM20.86 17.32c-.55 1.27-.81 1.84-1.51 2.96-.99 1.56-2.39 3.5-4.13 3.51-1.54.02-1.93-1-4.02-1-2.08.01-2.52 1.02-4.06 1.01-1.74-.01-3.06-1.77-4.05-3.32-2.78-4.34-3.07-9.43-1.36-12.13 1.21-1.92 3.13-3.04 4.93-3.04 1.83 0 2.98 1 4.49 1 1.47 0 2.36-1 4.48-1 1.6 0 3.3.87 4.51 2.38-3.96 2.17-3.31 7.83.72 9.63z"/></svg>
+          <div class="name">macOS</div>
+          <div class="fmt">.dmg</div>
+          <div class="status status-soon">Próximamente</div>
+        </div>
+        <div class="platform-card animate-in">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.5.5 0 00-.094.06c-.486.387-.793.93-1.058 1.349-.249.42-.464.785-.732.948-.625.385-.958.829-1.12 1.31-.162.481-.131.974-.115 1.435.017.485.025.785-.058 1.011a.5.5 0 00.058.516c.193.272.499.366.864.49.366.123.81.27 1.246.51.46.255.793.526 1.124.78.331.255.66.491 1.027.61.408.13.851.103 1.342-.058.49-.16.918-.483 1.279-.876.36-.394.658-.86.937-1.22.279-.36.541-.624.797-.726.182-.072.376-.105.572-.097a.5.5 0 00.5.022c.27-.05.546-.06.83-.022.298.04.601.146.91.34l.011.005c.413.215.812.59 1.196.964.384.374.762.756 1.21.999.448.243.973.374 1.546.288.572-.087 1.105-.376 1.624-.85a.5.5 0 00.118-.144c.16-.288.232-.605.226-.913a3.7 3.7 0 00-.135-.873c-.115-.443-.262-.84-.262-1.235v-.005c0-.396.207-.946.514-1.336.306-.39.585-.66 1.01-1.061.426-.402.79-.946 1.137-1.71.348-.764.681-1.748 1.014-3.01a.5.5 0 00.001-.014c.31-1.193.31-2.413-.018-3.45-.328-1.038-.97-1.911-1.823-2.422a.5.5 0 00-.072-.034c-.94-.382-1.752-1.043-2.318-1.728-.566-.685-.881-1.396-1.07-2.123-.245-.943-.402-1.793-.65-2.408-.247-.615-.621-1.066-1.193-1.41-.408-.247-.926-.36-1.502-.36z"/></svg>
+          <div class="name">Linux</div>
+          <div class="fmt">.AppImage</div>
+          <div class="status status-ready">Disponible</div>
+        </div>
+        <div class="platform-card soon animate-in">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.34l1.044-1.808a.217.217 0 00-.378-.218l-1.057 1.83a6.464 6.464 0 00-2.668-.586c-.95 0-1.86.205-2.668.586L10.74 13.314a.217.217 0 00-.378.218l1.044 1.808A6.04 6.04 0 008 20.5h12a6.04 6.04 0 00-3.477-5.16zM9.66 18.97a.51.51 0 110-1.02.51.51 0 010 1.02zm6.683 0a.51.51 0 110-1.02.51.51 0 010 1.02zM2.6 11.41a1.4 1.4 0 011.4-1.4 1.4 1.4 0 011.4 1.4v5.7a1.4 1.4 0 01-1.4 1.4 1.4 1.4 0 01-1.4-1.4v-5.7zm5.6 8.7a1.4 1.4 0 001.4 1.4h.7v3a1.4 1.4 0 002.8 0v-3h1.4v3a1.4 1.4 0 002.8 0v-3h.7a1.4 1.4 0 001.4-1.4V8.5h-11.2v11.61zm10.2-8.7a1.4 1.4 0 011.4-1.4 1.4 1.4 0 011.4 1.4v5.7a1.4 1.4 0 01-1.4 1.4 1.4 1.4 0 01-1.4-1.4v-5.7z"/></svg>
+          <div class="name">Android</div>
+          <div class="fmt">.apk</div>
+          <div class="status status-soon">Próximamente</div>
+        </div>
+      </div>
+      <p style="text-align:center;margin-top:1.5rem;font-size:0.8rem;color:var(--text-dim);">
+        Sin builds para Debian/Ubuntu (.deb) — usa el AppImage en cualquier distro Linux.
+      </p>
+    </div>
+  </section>
+
+  <!-- RELEASES -->
+  <section id="descargas" class="releases-section">
+    <div class="container">
+      <div class="section-header animate-in">
+        <div class="section-label">Descargas</div>
+        <h2 class="section-title">Última versión disponible</h2>
+        <p class="section-subtitle">Instaladores actualizados directamente desde GitHub Releases.</p>
+      </div>
+
+      <div id="releases-container">
+        <div class="loading">Cargando releases...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DISCLAIMER + INSTITUTIONAL -->
+  <section style="padding: 2rem 0 0;">
+    <div class="container">
+      <div class="disclaimer animate-in">
+        <b>Aviso:</b> OtoReport es una herramienta de apoyo al registro clínico. El criterio diagnóstico final corresponde siempre al profesional tratante. La aplicación no reemplaza la valoración de un médico calificado.
+      </div>
+    </div>
+  </section>
+
+  <section style="padding: 2.5rem 0 0;">
+    <div class="container">
+      <div class="institutional animate-in">
+        <img src="img/uach.png" alt="Universidad Austral de Chile" class="institutional-logo" onerror="this.style.display='none'">
+        <div class="institutional-text">
+          Proyecto desarrollado en la <strong>Universidad Austral de Chile</strong>. OtoReport nace de la necesidad clínica de digitalizar el registro de otoscopías y lavados de oído en atención primaria, sin depender de servicios en la nube.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <span class="logo"><img src="img/logo.png" alt="OtoReport" style="height:24px;width:24px">OtoReport</span>
+          <p>Reportes profesionales de otoscopía y lavado de oído. Offline-first, multiplataforma, open source.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Proyecto</h4>
+          <a href="https://github.com/Debaq/OtoReport">Repositorio</a>
+          <a href="https://github.com/Debaq/OtoReport/releases">Releases</a>
+          <a href="https://github.com/Debaq/OtoReport/blob/main/LICENSE">Licencia MIT</a>
+        </div>
+        <div class="footer-col">
+          <h4>Citar</h4>
+          <a href="https://doi.org/10.5281/zenodo.19664603">DOI Zenodo</a>
+          <a href="https://github.com/Debaq/OtoReport/blob/main/README.md">README</a>
+        </div>
+        <div class="footer-col">
+          <h4>Comunidad</h4>
+          <a href="https://github.com/Debaq/OtoReport/issues">Reportar problema</a>
+          <a href="https://github.com/Debaq/OtoReport/discussions">Discusiones</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>Nicolás Baier Quezada &mdash; Universidad Austral de Chile</span>
+        <span>Hecho con Tauri, React y Rust</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- LIGHTBOX -->
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" aria-label="Cerrar">&times;</button>
+    <img src="" alt="">
+  </div>
+
+  <script>
+    /* Lightbox */
+    (function() {
+      const lb = document.getElementById('lightbox');
+      const lbImg = lb.querySelector('img');
+      const lbClose = lb.querySelector('.lightbox-close');
+
+      function open(src, alt) {
+        lbImg.src = src;
+        lbImg.alt = alt || '';
+        requestAnimationFrame(() => lb.classList.add('open'));
+        document.body.style.overflow = 'hidden';
+      }
+      function close() {
+        lb.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+      document.addEventListener('click', function(e) {
+        const img = e.target.closest('.screenshot-frame img, .showcase-img img');
+        if (img) { e.preventDefault(); open(img.src, img.alt); }
+      });
+      lb.addEventListener('click', function(e) {
+        if (e.target === lb || e.target === lbClose || lbClose.contains(e.target)) close();
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && lb.classList.contains('open')) close();
+      });
+    })();
+
+    /* Scroll animations */
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => entry.target.classList.add('visible'), i * 80);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('.animate-in').forEach(el => observer.observe(el));
+
+    /* Nav scroll effect */
+    window.addEventListener('scroll', () => {
+      document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 50);
+    });
+
+    /* Releases (GitHub API) */
+    const REPO = 'Debaq/OtoReport';
+    const API = `https://api.github.com/repos/${REPO}/releases`;
+
+    const PLATFORM_MAP = {
+      '.msi':      { label: 'Windows (MSI)',      icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.45H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.45L0 20.699M10.949 12.6H24V24l-13.051-1.851"/></svg>' },
+      '.exe':      { label: 'Windows (EXE)',      icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.45H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.45L0 20.699M10.949 12.6H24V24l-13.051-1.851"/></svg>' },
+      '.dmg':      { label: 'macOS (DMG)',        icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16.365 1.43c0 1.14-.43 2.18-1.13 2.95-.84.93-2.21 1.65-3.34 1.56-.14-1.13.42-2.3 1.13-3.04.78-.83 2.13-1.5 3.34-1.47zM20.86 17.32c-.55 1.27-.81 1.84-1.51 2.96-.99 1.56-2.39 3.5-4.13 3.51-1.54.02-1.93-1-4.02-1-2.08.01-2.52 1.02-4.06 1.01-1.74-.01-3.06-1.77-4.05-3.32-2.78-4.34-3.07-9.43-1.36-12.13 1.21-1.92 3.13-3.04 4.93-3.04 1.83 0 2.98 1 4.49 1 1.47 0 2.36-1 4.48-1 1.6 0 3.3.87 4.51 2.38-3.96 2.17-3.31 7.83.72 9.63z"/></svg>' },
+      '.deb':      { label: 'Linux (DEB)',        icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>' },
+      '.rpm':      { label: 'Linux (RPM)',        icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>' },
+      '.AppImage': { label: 'Linux (AppImage)',   icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>' },
+      '.apk':      { label: 'Android (APK)',      icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.34l1.044-1.808a.217.217 0 00-.378-.218l-1.057 1.83a6.464 6.464 0 00-2.668-.586c-.95 0-1.86.205-2.668.586L10.74 13.314a.217.217 0 00-.378.218l1.044 1.808A6.04 6.04 0 008 20.5h12a6.04 6.04 0 00-3.477-5.16z"/></svg>' },
+      '.zip':      { label: 'ZIP',                icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/></svg>' },
+      '.tar.gz':   { label: 'Linux (tarball)',    icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>' },
+    };
+
+    function detectPlatform(name) {
+      if (name.endsWith('.tar.gz')) return PLATFORM_MAP['.tar.gz'];
+      for (const [ext, data] of Object.entries(PLATFORM_MAP)) {
+        if (name.endsWith(ext)) return data;
+      }
+      return null;
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function formatDate(dateStr) {
+      return new Date(dateStr).toLocaleDateString('es-CL', {
+        year: 'numeric', month: 'long', day: 'numeric'
+      });
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function renderRelease(release, isLatest) {
+      const assets = release.assets
+        .filter(a => detectPlatform(a.name))
+        .map(a => {
+          const p = detectPlatform(a.name);
+          return `<a href="${a.browser_download_url}" class="asset-btn">
+            ${p.icon} ${p.label}
+            <span class="asset-size">${formatSize(a.size)}</span>
+          </a>`;
+        }).join('');
+
+      const badge = release.prerelease
+        ? '<span class="release-badge badge-pre">Pre-release</span>'
+        : isLatest
+          ? '<span class="release-badge badge-latest">Última versión</span>'
+          : '';
+
+      const bodyHtml = release.body_html || '';
+      const body = bodyHtml ? `<div class="release-body">${bodyHtml}</div>` : '';
+      const latestClass = isLatest && !release.prerelease ? ' is-latest' : '';
+
+      return `
+        <div class="release-card${latestClass}">
+          <div class="release-header">
+            <div class="release-title-row">
+              <span class="release-tag">${escapeHtml(release.tag_name)}</span>
+              ${badge}
+            </div>
+            <span class="release-date">${formatDate(release.published_at)}</span>
+          </div>
+          ${body}
+          ${assets ? `<div class="release-assets">${assets}</div>` : ''}
+          <a href="${release.html_url}" class="release-link">Ver notas completas en GitHub &rarr;</a>
+        </div>`;
+    }
+
+    async function loadReleases() {
+      const container = document.getElementById('releases-container');
+      try {
+        const res = await fetch(API, {
+          headers: { 'Accept': 'application/vnd.github.full+json' }
+        });
+        if (!res.ok) throw new Error(res.status);
+        const releases = await res.json();
+
+        if (!releases.length) {
+          container.innerHTML = `
+            <div class="no-releases">
+              Aún no hay releases publicados.<br>
+              <a href="https://github.com/${REPO}">Seguir el desarrollo en GitHub &rarr;</a>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = releases
+          .slice(0, 5)
+          .map((r, i) => renderRelease(r, i === 0 && !r.prerelease))
+          .join('');
+      } catch (e) {
+        container.innerHTML = `
+          <div class="no-releases">
+            No se pudieron cargar los releases.<br>
+            <a href="https://github.com/${REPO}/releases">Ver en GitHub &rarr;</a>
+          </div>`;
+      }
+    }
+
+    loadReleases();
+  </script>
+
+</body>
+</html>
