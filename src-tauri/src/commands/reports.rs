@@ -426,13 +426,40 @@ fn calculate_age(birth_date: &str) -> i32 {
 }
 
 fn chrono_now() -> String {
-    // Simple ISO timestamp without chrono dependency
-    let now = std::time::SystemTime::now()
+    // ISO 8601 UTC timestamp (formato compatible con `new Date()` en JS).
+    let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs();
-    // Format as ISO-ish string (good enough for sorting)
-    format!("{}", now)
+        .as_secs() as i64;
+    unix_secs_to_iso(secs)
+}
+
+fn unix_secs_to_iso(secs: i64) -> String {
+    let days = secs.div_euclid(86_400);
+    let tod = secs.rem_euclid(86_400);
+    let hour = tod / 3600;
+    let minute = (tod % 3600) / 60;
+    let second = tod % 60;
+    let (year, month, day) = civil_from_days(days);
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hour, minute, second
+    )
+}
+
+// Howard Hinnant's date algorithm: días desde 1970-01-01 → (año, mes, día) calendario civil.
+fn civil_from_days(days_since_epoch: i64) -> (i32, u32, u32) {
+    let z = days_since_epoch + 719468;
+    let era = if z >= 0 { z } else { z - 146096 } / 146097;
+    let doe = (z - era * 146097) as i64;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    let year = if m <= 2 { y + 1 } else { y };
+    (year as i32, m, d)
 }
 
 fn copy_dir_recursive(src: &std::path::Path, dest: &std::path::Path) -> Result<(), String> {
