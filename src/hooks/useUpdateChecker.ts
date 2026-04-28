@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 
-export const APP_VERSION = "1.0.0";
+declare const __APP_VERSION__: string;
+export const APP_VERSION = __APP_VERSION__;
 
 const GITHUB_API_URL =
-  "https://api.github.com/repos/TecMedHub/OtoReport/releases/latest";
+  "https://api.github.com/repos/Debaq/OtoReport/releases/latest";
 const SESSION_KEY = "otoreport_update_checked";
 
 interface GitHubRelease {
