@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicovlkk/tauri-settings-schema/master/schema.json",
   "productName": "OtoReport",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "identifier": "cl.tecmedhub.otoreport",
   "build": {
     "frontendDist": "../dist",
