@@ -5,7 +5,7 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { formatRut, cleanRut, validateRut, calculateAge } from "@/lib/utils";
+import { formatRut, formatRutInput, cleanRut, validateRut, calculateAge } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import type { Patient } from "@/types";
 
@@ -114,8 +114,8 @@ export function PatientForm({ patient, onSave, onCancel }: PatientFormProps) {
         id="rut"
         {...register("rut")}
         error={errors.rut?.message}
-        value={validateRut(cleanRut(rutValue)) ? formatRut(rutValue) : rutValue}
-        onChange={(e) => setValue("rut", e.target.value)}
+        value={formatRutInput(rutValue)}
+        onChange={(e) => setValue("rut", formatRutInput(e.target.value))}
       />
       <div className="space-y-1">
         <div className="flex items-baseline gap-2">

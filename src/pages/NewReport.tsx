@@ -12,7 +12,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
-import { formatRut, cleanRut, validateRut, calculateAge } from "@/lib/utils";
+import { formatRut, formatRutInput, cleanRut, validateRut, calculateAge } from "@/lib/utils";
 
 /** Si parece RUT chileno (solo dígitos y K), intenta formatearlo */
 function tryFormatId(value: string): string {
@@ -45,7 +45,6 @@ export function NewReport() {
   const [patientBirthDate, setPatientBirthDate] = useState("");
   const [patientPhone, setPatientPhone] = useState("");
   const [patientEmail, setPatientEmail] = useState("");
-  const [isChileanRut, setIsChileanRut] = useState(false);
   const [reportType, setReportType] = useState<ReportType>("otoscopy");
   const [initializing, setInitializing] = useState(true);
 
@@ -85,12 +84,11 @@ export function NewReport() {
 
   function selectPatient(p: Patient) {
     setFoundPatient(p);
-    setRutInput(cleanRut(p.rut));
+    setRutInput(formatRutInput(p.rut));
     setPatientName(p.name);
     setPatientBirthDate(p.birth_date);
     setPatientPhone(p.phone);
     setPatientEmail(p.email);
-    setIsChileanRut(true);
     setShowSuggestions(false);
   }
 
@@ -107,7 +105,6 @@ export function NewReport() {
 
   function handleRutChange(value: string) {
     setRutInput(value);
-    setIsChileanRut(validateRut(cleanRut(value)));
     setShowSuggestions(true);
 
     // Si ya tenían un paciente seleccionado y cambiaron el ID, desvincularlo
@@ -199,8 +196,8 @@ export function NewReport() {
                 <Input
                   label={idLabel}
                   id="rut"
-                  value={isChileanRut ? formatRut(rutInput) : rutInput}
-                  onChange={(e) => handleRutChange(e.target.value)}
+                  value={formatRutInput(rutInput)}
+                  onChange={(e) => handleRutChange(formatRutInput(e.target.value))}
                   onFocus={() => searchTerm.length >= 2 && setShowSuggestions(true)}
                   placeholder="12.345.678-5"
                   autoComplete="off"

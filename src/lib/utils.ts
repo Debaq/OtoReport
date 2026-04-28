@@ -19,6 +19,26 @@ export function formatRut(rut: string): string {
   return `${formatted}-${dv}`;
 }
 
+/**
+ * Formatea un input de RUT mientras el usuario escribe.
+ * Solo formatea si el contenido es plausible como RUT chileno
+ * (solo dígitos, opcionalmente terminando en K). Si el usuario
+ * está ingresando otro tipo de identificador (DNI con letras, etc.),
+ * devuelve el valor tal cual.
+ */
+export function formatRutInput(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  // Si tiene caracteres distintos a dígitos, K, puntos, guion o espacio,
+  // probablemente no es RUT chileno. Dejar tal cual.
+  if (!/^[0-9kK.\-\s]+$/.test(trimmed)) return value;
+  const clean = cleanRut(trimmed);
+  if (clean.length < 2) return clean;
+  // K solo puede ir en el dígito verificador (último carácter).
+  if (/k/i.test(clean.slice(0, -1))) return value;
+  return formatRut(clean);
+}
+
 export function validateRut(rut: string): boolean {
   const clean = cleanRut(rut);
   if (clean.length < 2) return false;
