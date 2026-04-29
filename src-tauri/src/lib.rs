@@ -7,24 +7,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
-        .setup(|_app| {
-            #[cfg(target_os = "linux")]
-            {
-                use tauri::Manager;
-                let main_window = _app.get_webview_window("main").unwrap();
-                main_window
-                    .with_webview(|webview| {
-                        use webkit2gtk::{PermissionRequestExt, WebViewExt};
-                        let wv = webview.inner();
-                        wv.connect_permission_request(|_wv, request| {
-                            request.allow();
-                            true
-                        });
-                    })
-                    .unwrap();
-            }
-            Ok(())
-        })
+        .setup(|_app| Ok(()))
         .invoke_handler(tauri::generate_handler![
             commands::workspace::get_workspace,
             commands::workspace::set_workspace,
