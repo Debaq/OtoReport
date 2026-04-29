@@ -74,8 +74,8 @@ Installers for Windows, macOS, Linux, and Android are available on the [Releases
 | Platform | Format |
 |---|---|
 | Windows | `.msi` installer |
-| macOS | `.dmg` |
-| Linux | `.AppImage` / `.deb` |
+| macOS | `.dmg` _(coming soon)_ |
+| Linux | `.tar.gz` (binary + `run.sh`) |
 | Android | `.apk` |
 
 ---

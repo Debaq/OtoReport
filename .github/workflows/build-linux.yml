@@ -46,15 +46,39 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
-      - name: Build (AppImage + binary)
-        run: npx tauri build --bundles appimage
+      - name: Build (binario, sin bundles)
+        run: npx tauri build --no-bundle
 
-      - name: Collect artifacts
+      - name: Empaquetar binario en tar.gz
         run: |
-          mkdir -p dist-linux
-          cp src-tauri/target/release/bundle/appimage/*.AppImage dist-linux/
-          cp src-tauri/target/release/otoreport dist-linux/otoreport-linux-x86_64
-          chmod +x dist-linux/*
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ -z "$VERSION" ] && VERSION="dev"
+          PKG="otoreport-v${VERSION}-linux-x86_64"
+          mkdir -p "$PKG" dist-linux
+          cp src-tauri/target/release/otoreport "$PKG/otoreport"
+          chmod +x "$PKG/otoreport"
+          cat > "$PKG/run.sh" <<'EOF'
+          #!/usr/bin/env bash
+          DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          export LD_LIBRARY_PATH="$DIR:${LD_LIBRARY_PATH:-}"
+          exec "$DIR/otoreport" "$@"
+          EOF
+          chmod +x "$PKG/run.sh"
+          cat > "$PKG/README.txt" <<EOF
+          OtoReport v${VERSION} - Linux x86_64
+          ====================================
+
+          Cómo ejecutar:
+            ./run.sh        (recomendado)
+            ./otoreport     (directo)
+
+          Dependencias del sistema (Ubuntu/Debian):
+            sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0 librsvg2-2
+
+          Arch Linux:
+            sudo pacman -S webkit2gtk-4.1 gtk3 librsvg
+          EOF
+          tar -czf "dist-linux/${PKG}.tar.gz" "$PKG"
           ls -la dist-linux/
 
       - name: Upload artifacts
