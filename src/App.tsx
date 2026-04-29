@@ -65,6 +65,7 @@ const router = createHashRouter([
 
 function AppContent() {
   const { workspacePath, loading, profiles, profileSelected } = useWorkspace();
+  const update = useUpdateChecker();
 
   if (loading) {
     return (
@@ -81,8 +82,6 @@ function AppContent() {
   if (profiles.length > 1 && !profileSelected) {
     return <ProfileSelector />;
   }
-
-  const update = useUpdateChecker();
 
   return (
     <>

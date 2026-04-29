@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
+import pkg from "../../package.json";
 
-declare const __APP_VERSION__: string;
-export const APP_VERSION = __APP_VERSION__;
+export const APP_VERSION = pkg.version;
 
 const GITHUB_API_URL =
   "https://api.github.com/repos/Debaq/OtoReport/releases/latest";
