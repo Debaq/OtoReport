@@ -30,6 +30,21 @@ export interface EarMarks {
   marks: QuadrantMark[];
 }
 
+/** Otoscopía neumática: movilidad de la membrana timpánica bajo insuflación. */
+export type PneumaticMobility = "normal" | "reduced" | "absent";
+
+export const PNEUMATIC_MOBILITY_OPTIONS: PneumaticMobility[] = ["normal", "reduced", "absent"];
+
+export interface PneumaticOtoscopy {
+  /** "" = no evaluada */
+  mobility: PneumaticMobility | "";
+  notes: string;
+}
+
+export function createEmptyPneumatic(): PneumaticOtoscopy {
+  return { mobility: "", notes: "" };
+}
+
 export type EarFindings = Record<string, boolean>;
 
 export const DEFAULT_EAR_FINDINGS: EarFindings = {

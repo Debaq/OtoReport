@@ -1,7 +1,8 @@
 {
   "categories": {
     "membrane": "Membrana Timpánica",
-    "cae": "Conducto Auditivo Externo"
+    "cae": "Conducto Auditivo Externo",
+    "otitis_externa": "Otitis Externa"
   },
   "findings": {
     "normal": {

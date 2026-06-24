@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Trash2, Star, Pencil, EraserIcon, ArrowRightLeft, Crop, Download, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { compositeAnnotations } from "@/lib/annotation-renderer";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { EarImage } from "@/types/image";
 
 interface PhotoGalleryProps {
@@ -29,7 +31,9 @@ export function PhotoGallery({
   onMoveToOtherEar,
   onDownload,
 }: PhotoGalleryProps) {
+  const { t } = useTranslation();
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   // Track a cache key per image to detect when crop/rotation/annotations change
   const cacheKeysRef = useRef<Record<string, string>>({});
 
@@ -121,7 +125,7 @@ export function PhotoGallery({
                   ? "bg-amber-100 text-amber-600"
                   : "text-text-tertiary hover:bg-bg-tertiary hover:text-amber-500"
               )}
-              title="Imagen principal"
+              title={t("ear.gallery.setPrimary")}
             >
               <Star size={14} className={img.primary ? "fill-current" : ""} />
             </button>
@@ -129,7 +133,7 @@ export function PhotoGallery({
               <button
                 onClick={() => onClearAnnotations(img.id)}
                 className="rounded p-1 text-text-tertiary transition-colors hover:bg-warning-subtle hover:text-warning-text"
-                title="Borrar todas las anotaciones"
+                title={t("ear.gallery.clearAnnotations")}
               >
                 <EraserIcon size={14} />
               </button>
@@ -138,7 +142,7 @@ export function PhotoGallery({
               <button
                 onClick={() => onMoveToOtherEar(img)}
                 className="rounded p-1 text-text-tertiary transition-colors hover:bg-accent-subtle hover:text-accent-text"
-                title="Mover al otro oído"
+                title={t("ear.gallery.moveToOtherEar")}
               >
                 <ArrowRightLeft size={14} />
               </button>
@@ -148,21 +152,34 @@ export function PhotoGallery({
               <button
                 onClick={() => onDownload(img)}
                 className="rounded p-1 text-text-tertiary transition-colors hover:bg-accent-subtle hover:text-accent-text"
-                title="Descargar"
+                title={t("ear.gallery.download")}
               >
                 <Download size={14} />
               </button>
             )}
             <button
-              onClick={() => onRemove(img.id)}
+              onClick={() => setConfirmRemoveId(img.id)}
               className="rounded p-1 text-text-tertiary transition-colors hover:bg-danger-subtle hover:text-danger-text"
-              title="Eliminar"
+              title={t("common.delete")}
             >
               <Trash2 size={14} />
             </button>
           </div>
         </div>
       ))}
+
+      <ConfirmDialog
+        open={!!confirmRemoveId}
+        title={t("ear.confirmDeleteImage.title")}
+        message={t("ear.confirmDeleteImage.message")}
+        confirmLabel={t("common.delete")}
+        danger
+        onConfirm={() => {
+          if (confirmRemoveId) onRemove(confirmRemoveId);
+          setConfirmRemoveId(null);
+        }}
+        onCancel={() => setConfirmRemoveId(null)}
+      />
     </div>
   );
 }

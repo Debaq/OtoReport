@@ -68,6 +68,8 @@ pub struct EarData {
     pub marks: EarMarks,
     pub images: Vec<EarImageData>,
     pub observations: String,
+    #[serde(default)]
+    pub pneumatic: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,6 +113,8 @@ pub struct Report {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub post_left_ear: Option<EarData>,
     pub conclusion: String,
+    #[serde(default)]
+    pub anamnesis: serde_json::Value,
     pub created_at: String,
     pub updated_at: String,
     #[serde(default)]

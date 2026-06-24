@@ -201,7 +201,7 @@ export function PatientDetail() {
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-text-primary">
-                        {formatDate(s.created_at) || "Sin fecha"}
+                        {formatDate(s.created_at) || t("common.noDate")}
                       </p>
                       {s.report_type === "ear_wash" && (
                         <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-xs font-medium text-accent-text">

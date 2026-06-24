@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import type { Report, SessionInfo } from "@/types";
 import { EarPanel } from "./EarPanel";
+import { AnamnesisSection } from "./AnamnesisSection";
 import { ReportPreview } from "./ReportPreview";
+import { normalizeAnamnesis } from "@/types/anamnesis";
 import { Button } from "@/components/ui/Button";
 import { FileText, ChevronDown, ChevronUp, RefreshCw, Settings, Import, X, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -260,6 +262,15 @@ export function ReportForm({ report, onChange, flushSave, readOnly }: ReportForm
         )}
       </div>
 
+      {/* Anamnesis y antecedentes */}
+      <AnamnesisSection
+        anamnesis={report.anamnesis}
+        onChange={(updater) =>
+          onChange((r) => ({ ...r, anamnesis: updater(normalizeAnamnesis(r.anamnesis)) }))
+        }
+        readOnly={readOnly}
+      />
+
       {/* Acciones de hallazgos */}
       {!readOnly && (
         <div className="flex items-center justify-end gap-2">
@@ -475,7 +486,7 @@ export function ReportForm({ report, onChange, flushSave, readOnly }: ReportForm
                     >
                       <div>
                         <p className="text-sm font-medium text-text-primary">
-                          {formatDate(s.created_at) || "Sin fecha"}
+                          {formatDate(s.created_at) || t("common.noDate")}
                         </p>
                         <p className="text-xs text-text-tertiary">
                           {s.report_type === "ear_wash" ? t("report.earWash.types.ear_wash") : t("report.earWash.types.otoscopy")}

@@ -2,8 +2,9 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
 import type { Report, EarData, SessionInfo, Patient, FindingsCategoryConfig, ReportType } from "@/types";
-import { DEFAULT_EAR_FINDINGS } from "@/types/findings";
+import { DEFAULT_EAR_FINDINGS, createEmptyPneumatic } from "@/types/findings";
 import { getDefaultFindingsCategories, translateFindingsCategories } from "@/types/report";
+import { createEmptyAnamnesis } from "@/types/anamnesis";
 import { useWorkspace } from "./useWorkspace";
 import { calculateAge } from "@/lib/utils";
 
@@ -13,6 +14,7 @@ function createEmptyEarData(): EarData {
     marks: { marks: [] },
     images: [],
     observations: "",
+    pneumatic: createEmptyPneumatic(),
   };
 }
 
@@ -41,6 +43,7 @@ export function createEmptyReport(
     right_ear: createEmptyEarData(),
     left_ear: createEmptyEarData(),
     conclusion: "",
+    anamnesis: createEmptyAnamnesis(),
     created_at: now,
     updated_at: now,
     findings_categories: translatedCats.map((c) => ({ ...c, checks: c.checks.map((ch) => ({ ...ch })) })),

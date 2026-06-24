@@ -18,6 +18,7 @@ import type { WorkspaceConfig, FindingsCategoryConfig, FindingCheckConfig, UserP
 import { PROFILE_COLORS } from "@/types/report";
 import { SpriteAvatar, AvatarPicker } from "@/components/ui/SpriteAvatar";
 import { SpriteEditor } from "@/components/settings/SpriteEditor";
+import { FeedbackForm } from "@/components/settings/FeedbackForm";
 import { getDefaultFindingsCategories, translateFindingsCategories } from "@/types";
 import i18n from "@/i18n/config";
 import { FindingsSearchModal } from "@/components/settings/FindingsSearchModal";
@@ -448,13 +449,14 @@ function PdfMockup({ form, logoPreview }: { form: WorkspaceConfig; logoPreview: 
   );
 }
 
-type TabId = "general" | "informe" | "hallazgos" | "perfiles" | "acerca" | "contribuir";
+type TabId = "general" | "informe" | "hallazgos" | "perfiles" | "ayuda" | "acerca" | "contribuir";
 
 const TABS: { id: TabId; labelKey: string; icon: typeof Settings2 }[] = [
   { id: "general", labelKey: "settings.tabs.general", icon: Settings2 },
   { id: "informe", labelKey: "settings.tabs.report", icon: FileText },
   { id: "hallazgos", labelKey: "settings.tabs.findings", icon: Stethoscope },
   { id: "perfiles", labelKey: "settings.tabs.profiles", icon: Users },
+  { id: "ayuda", labelKey: "settings.tabs.help", icon: BookOpen },
   { id: "acerca", labelKey: "settings.tabs.about", icon: Info },
   { id: "contribuir", labelKey: "settings.tabs.contribute", icon: Heart },
 ];
@@ -780,7 +782,7 @@ export function Settings() {
   const [androidMode, setAndroidMode] = useState(false);
   const initialTab = (searchParams.get("tab") as TabId) || "general";
   const [activeTab, setActiveTab] = useState<TabId>(
-    ["general", "informe", "hallazgos", "perfiles", "acerca", "contribuir"].includes(initialTab) ? initialTab : "general"
+    ["general", "informe", "hallazgos", "perfiles", "ayuda", "acerca", "contribuir"].includes(initialTab) ? initialTab : "general"
   );
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
@@ -1297,6 +1299,63 @@ export function Settings() {
           )}
 
           {/* Tab: Acerca de */}
+          {activeTab === "ayuda" && (
+            <div className="mx-auto max-w-3xl space-y-6">
+              <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6">
+                <div className="mb-2 flex items-center gap-2">
+                  <BookOpen size={20} className="text-accent" />
+                  <h2 className="text-lg font-semibold text-text-primary">{t("settings.help.title")}</h2>
+                </div>
+                <p className="text-sm leading-relaxed text-text-secondary">{t("settings.help.intro")}</p>
+              </div>
+
+              <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6">
+                <h3 className="mb-4 text-base font-semibold text-text-primary">{t("settings.help.manualTitle")}</h3>
+                <ol className="space-y-3">
+                  {(t("settings.help.steps", { returnObjects: true }) as string[]).map((step, i) => (
+                    <li key={i} className="flex gap-3 text-sm text-text-secondary">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-xs font-semibold text-accent-text">
+                        {i + 1}
+                      </span>
+                      <span className="pt-0.5 leading-relaxed">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-4 rounded-lg bg-bg-tertiary px-3 py-2 text-xs leading-relaxed text-text-tertiary">
+                  {t("settings.help.autosaveNote")}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6">
+                <h3 className="mb-4 text-base font-semibold text-text-primary">{t("settings.help.shortcutsTitle")}</h3>
+                <div className="space-y-2">
+                  {(t("settings.help.shortcuts", { returnObjects: true }) as { keys: string; desc: string }[]).map((s, i) => (
+                    <div key={i} className="flex items-center justify-between gap-4 text-sm">
+                      <span className="text-text-secondary">{s.desc}</span>
+                      <kbd className="shrink-0 rounded border border-border-primary bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary">
+                        {s.keys}
+                      </kbd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6">
+                <h3 className="mb-4 text-base font-semibold text-text-primary">{t("settings.help.faqTitle")}</h3>
+                <div className="space-y-4">
+                  {(t("settings.help.faq", { returnObjects: true }) as { q: string; a: string }[]).map((f, i) => (
+                    <div key={i}>
+                      <p className="text-sm font-medium text-text-primary">{f.q}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-text-secondary">{f.a}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <FeedbackForm appVersion={APP_VERSION} />
+            </div>
+          )}
+
           {activeTab === "acerca" && (
             <div className="mx-auto max-w-3xl space-y-6">
               <div className="rounded-xl border border-border-secondary bg-bg-secondary p-6 text-center">

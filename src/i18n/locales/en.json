@@ -29,15 +29,41 @@
     "inProgress": "In progress"
   },
   "ear": {
-    "right": "Right Ear (OD)",
-    "left": "Left Ear (OS)",
+    "right": "Right Ear (R)",
+    "left": "Left Ear (L)",
     "findingToMark": "Finding to mark:",
     "observations": "Observations",
     "observationsPlaceholder": "Additional observations...",
     "images": "Images",
     "loadingImages": "Loading images...",
     "openingEditor": "Opening editor...",
-    "imageFilterName": "Images"
+    "imageFilterName": "Images",
+    "pneumatic": {
+      "label": "Pneumatic otoscopy",
+      "notAssessed": "Not assessed",
+      "normal": "Normal",
+      "reduced": "Decreased",
+      "absent": "Absent",
+      "notesPlaceholder": "Pneumatic notes..."
+    },
+    "diagram": {
+      "cancel": "Cancel",
+      "cancelHint": "Clear the active finding selection",
+      "undo": "Back",
+      "undoHint": "Undo the last diagram mark",
+      "clear": "Undo all",
+      "clearHint": "Remove all diagram marks"
+    },
+    "confirmDeleteImage": {
+      "title": "Delete image",
+      "message": "This image will be permanently deleted. Continue?"
+    },
+    "gallery": {
+      "setPrimary": "Primary image",
+      "clearAnnotations": "Clear all annotations",
+      "moveToOtherEar": "Move to other ear",
+      "download": "Download"
+    }
   },
   "report": {
     "title": "Report",
@@ -87,7 +113,79 @@
     "patientCreatedAndReportStarted": "Patient created and report started",
     "startReport": "Start Report",
     "reportType": "Report Type",
-    "readOnly": "Read only"
+    "readOnly": "Read only",
+    "anamnesis": {
+      "title": "History & background",
+      "otherPlaceholder": "Other (specify)...",
+      "symptoms": {
+        "title": "Associated symptoms",
+        "pruritus": "Pruritus",
+        "otalgia": "Otalgia",
+        "tinnitus": "Tinnitus",
+        "fullness": "Aural fullness",
+        "hypoacusis": "Hearing loss",
+        "otorrhea": "Otorrhea",
+        "vertigo": "Vertigo / dizziness"
+      },
+      "respiratory": {
+        "title": "Respiratory history",
+        "allergic_rhinitis": "Allergic rhinitis",
+        "chronic_sinusitis": "Chronic sinusitis",
+        "asthma": "Asthma",
+        "adenoid_hypertrophy": "Adenoid hypertrophy",
+        "recurrent_uri": "Recurrent URTI",
+        "nasal_polyps": "Nasal polyposis"
+      },
+      "ome_risk": {
+        "title": "OME risk factors",
+        "daycare": "Daycare / nursery attendance",
+        "tobacco_smoke": "Tobacco smoke exposure",
+        "bottle_feeding": "Bottle feeding",
+        "allergies": "Allergies",
+        "family_history": "Family history of OME",
+        "craniofacial_anomaly": "Craniofacial anomaly",
+        "gerd": "Gastroesophageal reflux"
+      },
+      "oe_factors": {
+        "title": "Otitis externa predisposing factors",
+        "swimming": "Swimming / frequent immersion",
+        "humidity": "Canal humidity",
+        "local_trauma": "Local trauma (cotton swabs)",
+        "hearing_aids": "Hearing aids / earplugs use",
+        "dermatitis": "Dermatitis / eczema",
+        "cerumen_absence": "Absence of cerumen",
+        "narrow_canal": "Narrow ear canal"
+      },
+      "comorbidities": {
+        "title": "Comorbidities & immunocompromise",
+        "diabetes": "Diabetes mellitus",
+        "immunosuppression": "Immunosuppression",
+        "hiv": "HIV",
+        "chemotherapy": "Chemotherapy",
+        "chronic_corticosteroids": "Chronic corticosteroid therapy",
+        "radiotherapy": "Radiotherapy"
+      },
+      "treatment": {
+        "title": "Therapeutic options",
+        "observation": "Observation / follow-up",
+        "topical_antibiotic": "Topical antibiotic",
+        "oral_antibiotic": "Oral antibiotic",
+        "topical_corticosteroid": "Topical corticosteroid",
+        "analgesia": "Analgesia",
+        "ear_cleaning": "Ear cleaning / aspiration",
+        "ent_referral": "ENT referral",
+        "audiometry": "Request audiometry"
+      }
+    },
+    "pdfDialog": {
+      "title": "PDF Report",
+      "generating": "Generating PDF...",
+      "error": "Error generating the PDF",
+      "success": "The PDF was generated successfully and opened in your PDF viewer.",
+      "openPreview": "Open preview",
+      "save": "Save as...",
+      "exporting": "Exporting..."
+    }
   },
   "pdf": {
     "sections": {
@@ -108,8 +206,8 @@
       "examData": "Exam Data",
       "examiner": "Examiner",
       "equipment": "Equipment",
-      "rightEar": "Right Ear (OD)",
-      "leftEar": "Left Ear (OS)",
+      "rightEar": "Right Ear (R)",
+      "leftEar": "Left Ear (L)",
       "observations": "Observations",
       "conclusion": "Conclusion",
       "page": "Page {{current}} of {{total}}"
@@ -127,7 +225,8 @@
       "findings": "Findings",
       "profiles": "Profiles",
       "about": "About",
-      "contribute": "Contribute"
+      "contribute": "Contribute",
+      "help": "Help"
     },
     "appearance": {
       "title": "Appearance",
@@ -269,12 +368,93 @@
       "educationDesc": "Interactive ear anatomy tools for clinical care support."
     },
     "save": "Save Settings",
-    "saved": "Saved"
+    "saved": "Saved",
+    "help": {
+      "title": "Help & user manual",
+      "intro": "Quick guide to using OtoReport. If you have questions or want to report a bug, contact us at the bottom of this page.",
+      "manualTitle": "How to create a report step by step",
+      "steps": [
+        "Create or select a patient by entering their identification (RUT/ID/DNI) and name.",
+        "Choose the report type: Otoscopy or Ear Wash.",
+        "For each ear, capture images with the camera or load existing files.",
+        "Click an image to open the editor: draw marks, add text, use the tympanic map and adjust brightness/contrast.",
+        "Record findings in the diagram and checklist. Complete the history and pneumatic otoscopy if applicable.",
+        "Write the exam conclusion.",
+        "Use Preview to review, then Save as… to export the PDF."
+      ],
+      "autosaveNote": "Changes are saved automatically every few seconds. Marking a report as completed makes it read-only; duplicate it if you need to edit it again.",
+      "shortcutsTitle": "Image editor shortcuts",
+      "shortcuts": [
+        {
+          "keys": "Space + drag",
+          "desc": "Pan the image"
+        },
+        {
+          "keys": "Mouse wheel",
+          "desc": "Zoom in / out"
+        },
+        {
+          "keys": "Arrow keys",
+          "desc": "Move the selected item"
+        },
+        {
+          "keys": "Shift + Arrows",
+          "desc": "Move in larger steps"
+        },
+        {
+          "keys": "Del / Backspace",
+          "desc": "Delete the selected item"
+        },
+        {
+          "keys": "Esc",
+          "desc": "Deselect"
+        }
+      ],
+      "faqTitle": "Frequently asked questions",
+      "faq": [
+        {
+          "q": "Where is my data stored?",
+          "a": "In the workspace folder you chose at startup. Everything stays on your device and is not sent to external servers."
+        },
+        {
+          "q": "How do I change the language?",
+          "a": "Use the language button in the top bar of the application."
+        },
+        {
+          "q": "How do I add or customize findings?",
+          "a": "In the Findings tab of Settings you can add, remove and edit categories and findings."
+        },
+        {
+          "q": "Can I edit a completed report?",
+          "a": "Completed reports are read-only. Duplicate it from the patient record to create an editable copy."
+        }
+      ],
+      "contactTitle": "Contact & support",
+      "contactIntro": "Have questions, found a bug, or want to suggest an improvement? Reach out:",
+      "contactInstagram": "Instagram: @tecmedhub",
+      "contactGithub": "Report an issue or suggestion on GitHub"
+    },
+    "feedback": {
+      "title": "Questions, bugs & suggestions",
+      "intro": "Write your question, bug report or suggestion. GitHub will open with the message pre-filled so you only need to confirm.",
+      "typeLabel": "Type",
+      "types": {
+        "query": "Question",
+        "bug": "Bug",
+        "suggestion": "Suggestion"
+      },
+      "messageLabel": "Message",
+      "messagePlaceholder": "Describe your question, the bug you found or your suggestion in as much detail as possible...",
+      "diagnosticsNote": "The app version and your system will be attached to help us diagnose.",
+      "submitGithub": "Send via GitHub",
+      "submitInstagram": "Message on Instagram",
+      "emptyHint": "Write a message first."
+    }
   },
   "patients": {
     "title": "Patients",
     "name": "Name",
-    "rut": "ID / RUT / DNI",
+    "rut": "RUT / ID / DNI",
     "idLabel": {
       "rut_id_dni": "RUT / ID / DNI",
       "rut": "RUT",
@@ -347,7 +527,12 @@
     "minimize": "Minimize",
     "maximize": "Maximize",
     "restore": "Restore",
-    "close": "Close"
+    "close": "Close",
+    "confirmClose": {
+      "title": "Close OtoReport",
+      "message": "Are you sure you want to close the app? Unsaved changes may be lost.",
+      "confirm": "Close"
+    }
   },
   "findings": {
     "labels": {
@@ -473,7 +658,9 @@
     "loading": "Loading...",
     "search": "Search",
     "noResults": "No results found",
-    "noFindings": "No findings"
+    "noFindings": "No findings",
+    "confirm": "Confirm",
+    "noDate": "No date"
   },
   "update": {
     "available": "Update available",

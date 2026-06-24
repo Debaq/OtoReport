@@ -1,7 +1,8 @@
 {
   "categories": {
     "membrane": "Tympanic Membrane",
-    "cae": "External Auditory Canal"
+    "cae": "External Auditory Canal",
+    "otitis_externa": "Otitis Externa"
   },
   "findings": {
     "normal": {

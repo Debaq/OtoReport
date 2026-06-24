@@ -5,6 +5,7 @@ import { LogOut, ChevronDown, Minus, Square, X, Copy, Languages } from "lucide-r
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isDesktop } from "@/lib/platform";
 import { SpriteAvatar } from "@/components/ui/SpriteAvatar";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface HeaderProps {
   title: string;
@@ -17,6 +18,7 @@ export function Header({ title }: HeaderProps) {
   const [langOpen, setLangOpen] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [maximized, setMaximized] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const langRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +55,7 @@ export function Header({ title }: HeaderProps) {
 
   const handleMinimize = () => getCurrentWindow().minimize();
   const handleMaximize = () => getCurrentWindow().toggleMaximize();
-  const handleClose = () => getCurrentWindow().close();
+  const handleClose = () => setConfirmClose(true);
 
   const toggleLanguage = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -161,6 +163,16 @@ export function Header({ title }: HeaderProps) {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmClose}
+        title={t("header.confirmClose.title")}
+        message={t("header.confirmClose.message")}
+        confirmLabel={t("header.confirmClose.confirm")}
+        danger
+        onConfirm={() => getCurrentWindow().close()}
+        onCancel={() => setConfirmClose(false)}
+      />
     </header>
   );
 }

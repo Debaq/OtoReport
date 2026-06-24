@@ -37,7 +37,33 @@
     "images": "Imágenes",
     "loadingImages": "Cargando imágenes...",
     "openingEditor": "Abriendo editor...",
-    "imageFilterName": "Imágenes"
+    "imageFilterName": "Imágenes",
+    "pneumatic": {
+      "label": "Otoscopía neumática",
+      "notAssessed": "No evaluada",
+      "normal": "Normal",
+      "reduced": "Disminuida",
+      "absent": "Ausente",
+      "notesPlaceholder": "Notas de neumática..."
+    },
+    "diagram": {
+      "cancel": "Cancelar",
+      "cancelHint": "Quitar la selección de hallazgo activa",
+      "undo": "Atrás",
+      "undoHint": "Deshacer la última marca del diagrama",
+      "clear": "Deshacer todo",
+      "clearHint": "Eliminar todas las marcas del diagrama"
+    },
+    "confirmDeleteImage": {
+      "title": "Eliminar imagen",
+      "message": "Esta imagen se eliminará de forma permanente. ¿Continuar?"
+    },
+    "gallery": {
+      "setPrimary": "Imagen principal",
+      "clearAnnotations": "Borrar todas las anotaciones",
+      "moveToOtherEar": "Mover al otro oído",
+      "download": "Descargar"
+    }
   },
   "report": {
     "title": "Informe",
@@ -87,7 +113,79 @@
     "patientCreatedAndReportStarted": "Paciente creado e informe iniciado",
     "startReport": "Comenzar Informe",
     "reportType": "Tipo de Informe",
-    "readOnly": "Solo lectura"
+    "readOnly": "Solo lectura",
+    "anamnesis": {
+      "title": "Anamnesis y antecedentes",
+      "otherPlaceholder": "Otros (especificar)...",
+      "symptoms": {
+        "title": "Síntomas asociados",
+        "pruritus": "Prurito",
+        "otalgia": "Otalgia",
+        "tinnitus": "Tinnitus",
+        "fullness": "Plenitud auditiva",
+        "hypoacusis": "Hipoacusia",
+        "otorrhea": "Otorrea",
+        "vertigo": "Vértigo / mareo"
+      },
+      "respiratory": {
+        "title": "Antecedentes respiratorios",
+        "allergic_rhinitis": "Rinitis alérgica",
+        "chronic_sinusitis": "Sinusitis crónica",
+        "asthma": "Asma",
+        "adenoid_hypertrophy": "Hipertrofia adenoidea",
+        "recurrent_uri": "IVAS recurrentes",
+        "nasal_polyps": "Poliposis nasal"
+      },
+      "ome_risk": {
+        "title": "Factores de riesgo OME",
+        "daycare": "Asistencia a sala cuna / jardín",
+        "tobacco_smoke": "Exposición a humo de tabaco",
+        "bottle_feeding": "Alimentación con biberón",
+        "allergies": "Alergias",
+        "family_history": "Antecedentes familiares de OME",
+        "craniofacial_anomaly": "Anomalía craneofacial",
+        "gerd": "Reflujo gastroesofágico"
+      },
+      "oe_factors": {
+        "title": "Factores predisponentes otitis externa",
+        "swimming": "Natación / inmersión frecuente",
+        "humidity": "Humedad del conducto",
+        "local_trauma": "Trauma local (cotonitos)",
+        "hearing_aids": "Uso de audífonos / tapones",
+        "dermatitis": "Dermatitis / eccema",
+        "cerumen_absence": "Ausencia de cerumen",
+        "narrow_canal": "Conducto estrecho"
+      },
+      "comorbidities": {
+        "title": "Comorbilidades e inmunocompromiso",
+        "diabetes": "Diabetes mellitus",
+        "immunosuppression": "Inmunosupresión",
+        "hiv": "VIH",
+        "chemotherapy": "Quimioterapia",
+        "chronic_corticosteroids": "Corticoterapia crónica",
+        "radiotherapy": "Radioterapia"
+      },
+      "treatment": {
+        "title": "Opciones terapéuticas",
+        "observation": "Observación / control",
+        "topical_antibiotic": "Antibiótico tópico",
+        "oral_antibiotic": "Antibiótico oral",
+        "topical_corticosteroid": "Corticoide tópico",
+        "analgesia": "Analgesia",
+        "ear_cleaning": "Aseo / aspiración de oído",
+        "ent_referral": "Derivación a ORL",
+        "audiometry": "Solicitar audiometría"
+      }
+    },
+    "pdfDialog": {
+      "title": "Informe PDF",
+      "generating": "Generando PDF...",
+      "error": "Error al generar el PDF",
+      "success": "El PDF se generó correctamente y se abrió en tu visor de PDF.",
+      "openPreview": "Abrir vista previa",
+      "save": "Guardar como...",
+      "exporting": "Exportando..."
+    }
   },
   "pdf": {
     "sections": {
@@ -127,7 +225,8 @@
       "findings": "Hallazgos",
       "profiles": "Perfiles",
       "about": "Acerca de",
-      "contribute": "Contribuir"
+      "contribute": "Contribuir",
+      "help": "Ayuda"
     },
     "appearance": {
       "title": "Apariencia",
@@ -269,7 +368,88 @@
       "educationDesc": "Herramientas interactivas de anatomía del oído para apoyo en la atención clínica."
     },
     "save": "Guardar Configuración",
-    "saved": "Guardado"
+    "saved": "Guardado",
+    "help": {
+      "title": "Ayuda y manual de uso",
+      "intro": "Guía rápida para usar OtoReport. Si tienes dudas o quieres reportar un error, contáctanos al final de esta página.",
+      "manualTitle": "Cómo crear un informe paso a paso",
+      "steps": [
+        "Crea o selecciona un paciente ingresando su identificación (RUT/ID/DNI) y nombre.",
+        "Elige el tipo de informe: Otoscopía o Lavado de Oído.",
+        "En cada oído, captura imágenes con la cámara o carga archivos existentes.",
+        "Haz clic en una imagen para abrir el editor: dibuja marcas, agrega texto, usa el mapa timpánico y ajusta brillo/contraste.",
+        "Registra los hallazgos en el diagrama y en el checklist. Completa la anamnesis y la otoscopía neumática si corresponde.",
+        "Escribe la conclusión del examen.",
+        "Usa Vista previa para revisar y luego Guardar como… para exportar el PDF."
+      ],
+      "autosaveNote": "Los cambios se guardan automáticamente cada pocos segundos. Al marcar un informe como completado queda en solo lectura; duplícalo si necesitas editarlo de nuevo.",
+      "shortcutsTitle": "Atajos del editor de imágenes",
+      "shortcuts": [
+        {
+          "keys": "Espacio + arrastrar",
+          "desc": "Desplazar la imagen (pan)"
+        },
+        {
+          "keys": "Rueda del mouse",
+          "desc": "Acercar / alejar (zoom)"
+        },
+        {
+          "keys": "Flechas",
+          "desc": "Mover el elemento seleccionado"
+        },
+        {
+          "keys": "Shift + Flechas",
+          "desc": "Mover en pasos más grandes"
+        },
+        {
+          "keys": "Supr / Backspace",
+          "desc": "Eliminar el elemento seleccionado"
+        },
+        {
+          "keys": "Esc",
+          "desc": "Deseleccionar"
+        }
+      ],
+      "faqTitle": "Preguntas frecuentes",
+      "faq": [
+        {
+          "q": "¿Dónde se guardan mis datos?",
+          "a": "En la carpeta de trabajo (workspace) que elegiste al iniciar. Todo queda en tu equipo, sin enviarse a servidores externos."
+        },
+        {
+          "q": "¿Cómo cambio el idioma?",
+          "a": "Con el botón de idioma en la barra superior de la aplicación."
+        },
+        {
+          "q": "¿Cómo agrego o personalizo hallazgos?",
+          "a": "En la pestaña Hallazgos de Ajustes puedes añadir, quitar y editar categorías y hallazgos."
+        },
+        {
+          "q": "¿Puedo editar un informe completado?",
+          "a": "Los informes completados quedan en solo lectura. Duplícalo desde la ficha del paciente para crear una copia editable."
+        }
+      ],
+      "contactTitle": "Contacto y soporte",
+      "contactIntro": "¿Tienes consultas, encontraste un error o quieres sugerir una mejora? Escríbenos:",
+      "contactInstagram": "Instagram: @tecmedhub",
+      "contactGithub": "Reportar un problema o sugerencia en GitHub"
+    },
+    "feedback": {
+      "title": "Consultas, errores y sugerencias",
+      "intro": "Escribe tu consulta, reporte de error o sugerencia. Se abrirá GitHub con el mensaje prellenado para que solo confirmes el envío.",
+      "typeLabel": "Tipo",
+      "types": {
+        "query": "Consulta",
+        "bug": "Error",
+        "suggestion": "Sugerencia"
+      },
+      "messageLabel": "Mensaje",
+      "messagePlaceholder": "Describe tu consulta, el error encontrado o tu sugerencia con el mayor detalle posible...",
+      "diagnosticsNote": "Se adjuntará la versión de la app y tu sistema para ayudarnos a diagnosticar.",
+      "submitGithub": "Enviar por GitHub",
+      "submitInstagram": "Escribir por Instagram",
+      "emptyHint": "Escribe un mensaje primero."
+    }
   },
   "patients": {
     "title": "Pacientes",
@@ -347,7 +527,12 @@
     "minimize": "Minimizar",
     "maximize": "Maximizar",
     "restore": "Restaurar",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "confirmClose": {
+      "title": "Cerrar OtoReport",
+      "message": "¿Seguro que quieres cerrar la aplicación? Los cambios sin guardar podrían perderse.",
+      "confirm": "Cerrar"
+    }
   },
   "findings": {
     "labels": {
@@ -473,7 +658,9 @@
     "loading": "Cargando...",
     "search": "Buscar",
     "noResults": "No se encontraron resultados",
-    "noFindings": "Sin hallazgos"
+    "noFindings": "Sin hallazgos",
+    "confirm": "Confirmar",
+    "noDate": "Sin fecha"
   },
   "update": {
     "available": "Actualización disponible",

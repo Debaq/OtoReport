@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { pdf } from "@react-pdf/renderer";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -60,6 +61,7 @@ export function ReportPreview({
   loadImageUrl,
   onClose,
 }: ReportPreviewProps) {
+  const { t } = useTranslation();
   const { config } = useWorkspace();
   const resolvedConfig = config ? { ...defaultConfig, ...config } : defaultConfig;
 
@@ -292,7 +294,7 @@ export function ReportPreview({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay">
       <div className="flex w-[400px] flex-col rounded-xl bg-bg-secondary shadow-2xl">
         <div className="flex items-center justify-between border-b border-border-secondary px-6 py-4">
-          <h3 className="text-lg font-semibold text-text-primary">Informe PDF</h3>
+          <h3 className="text-lg font-semibold text-text-primary">{t("report.pdfDialog.title")}</h3>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X size={18} />
           </Button>
@@ -301,27 +303,27 @@ export function ReportPreview({
           {status === "generating" ? (
             <div className="flex flex-col items-center gap-3 py-6 text-text-tertiary">
               <Spinner />
-              <span className="text-sm">Generando PDF...</span>
+              <span className="text-sm">{t("report.pdfDialog.generating")}</span>
             </div>
           ) : status === "error" ? (
             <div className="py-6 text-center text-danger-text">
-              Error al generar el PDF
+              {t("report.pdfDialog.error")}
             </div>
           ) : (
             <>
               <p className="text-sm text-text-secondary">
-                El PDF se generó correctamente y se abrió en tu visor de PDF.
+                {t("report.pdfDialog.success")}
               </p>
               <Button onClick={handleOpenPreview} disabled={!previewPath}>
                 <ExternalLink size={16} />
-                Abrir vista previa
+                {t("report.pdfDialog.openPreview")}
               </Button>
               <Button
                 onClick={handleExport}
                 disabled={status === "exporting"}
               >
                 <Download size={16} />
-                {status === "exporting" ? "Exportando..." : "Guardar como..."}
+                {status === "exporting" ? t("report.pdfDialog.exporting") : t("report.pdfDialog.save")}
               </Button>
             </>
           )}

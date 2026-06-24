@@ -9,9 +9,11 @@ import {
 import type { Report, EarData, WorkspaceConfig, FindingsCategoryConfig } from "@/types";
 import type { EarFindings, QuadrantMark } from "@/types/findings";
 import { FindingType, getDefaultFindingsCategories, translateFindingsCategories } from "@/types";
+import { ANAMNESIS_GROUPS, normalizeAnamnesis, hasAnamnesisContent } from "@/types/anamnesis";
+import type { Anamnesis } from "@/types/anamnesis";
 import i18n from "@/i18n/config";
 
-const DEFAULT_SECTION_ORDER = ["header", "logo", "patient_info", "exam_info", "diagram", "findings", "observations", "images", "annotations", "conclusion", "footer"];
+const DEFAULT_SECTION_ORDER = ["header", "logo", "patient_info", "exam_info", "anamnesis", "diagram", "findings", "observations", "images", "annotations", "conclusion", "footer"];
 
 const EAR_CONTENT_KEYS = new Set(["diagram", "findings", "observations", "images", "annotations"]);
 
@@ -155,6 +157,18 @@ function buildFindingLabels(categories?: FindingsCategoryConfig[]): Record<strin
   return labels;
 }
 
+function getAnamnesisGroups(anamnesis: Anamnesis): { title: string; items: string[] }[] {
+  const out: { title: string; items: string[] }[] = [];
+  for (const g of ANAMNESIS_GROUPS) {
+    const rec = (anamnesis[g.id] as Record<string, boolean>) ?? {};
+    const items = g.options.filter((k) => rec[k]).map((k) => i18n.t(`report.anamnesis.${g.id}.${k}`));
+    const other = (anamnesis[g.other] as string)?.trim();
+    if (other) items.push(other);
+    if (items.length > 0) out.push({ title: i18n.t(`report.anamnesis.${g.id}.title`), items });
+  }
+  return out;
+}
+
 function ActiveFindings({ findings, categories }: { findings: EarFindings; categories?: FindingsCategoryConfig[] }) {
   const labels = buildFindingLabels(categories);
   const active = Object.keys(findings).filter((k) => findings[k]);
@@ -291,7 +305,15 @@ function EarSection({
         switch (key) {
           case "findings":
             return config.show_findings ? (
-              <View key={key}><ActiveFindings findings={data.findings} categories={reportCategories} /></View>
+              <View key={key}>
+                <ActiveFindings findings={data.findings} categories={reportCategories} />
+                {data.pneumatic?.mobility ? (
+                  <Text style={[styles.findingItem, { marginTop: 4 }]}>
+                    {i18n.t("ear.pneumatic.label")}: {i18n.t(`ear.pneumatic.${data.pneumatic.mobility}`)}
+                    {data.pneumatic.notes ? ` (${data.pneumatic.notes})` : ""}
+                  </Text>
+                ) : null}
+              </View>
             ) : null;
           case "observations":
             return config.show_observations && data.observations ? (
@@ -463,6 +485,24 @@ export function PdfReport({
           </View>
         </View>
       ) : null,
+    anamnesis: () => {
+      if (!hasAnamnesisContent(report.anamnesis)) return null;
+      const groups = getAnamnesisGroups(normalizeAnamnesis(report.anamnesis));
+      if (groups.length === 0) return null;
+      return (
+        <View key="anamnesis" style={styles.section}>
+          <Text style={{ fontSize: 12, fontWeight: "bold", color: theme.dark, marginBottom: 6, borderBottom: "1px solid #e5e7eb", paddingBottom: 3 }}>
+            {i18n.t("report.anamnesis.title")}
+          </Text>
+          {groups.map((g) => (
+            <View key={g.title} style={styles.row}>
+              <Text style={styles.label}>{g.title}:</Text>
+              <Text style={styles.value}>{g.items.join(", ")}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    },
     "__ear__": () => {
       if (!hasEarContent) return null;
       const nonDiagramOrder = earContentOrder.filter((k) => k !== "diagram");

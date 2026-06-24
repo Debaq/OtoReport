@@ -1,11 +1,13 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { Undo2, Eraser, Ban } from "lucide-react";
 import { compositeAnnotations } from "@/lib/annotation-renderer";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import type { EarData, FindingsCategoryConfig } from "@/types";
 import type { EarSide, EarImage } from "@/types/image";
-import { FindingType, QuadrantName } from "@/types/findings";
+import { FindingType, QuadrantName, PNEUMATIC_MOBILITY_OPTIONS, createEmptyPneumatic } from "@/types/findings";
+import type { PneumaticOtoscopy, QuadrantMark } from "@/types/findings";
 import { FindingsChecklist } from "./FindingsChecklist";
 import { TympanicDiagram } from "./TympanicDiagram";
 import { SymbolPalette } from "./SymbolPalette";
@@ -33,6 +35,8 @@ export function EarPanel({ side, data, patientId, sessionId, patientName, report
   const { t } = useTranslation();
   const isRight = side === "right" || side === "pre_right" || side === "post_right";
   const title = isRight ? t("ear.right") : t("ear.left");
+  // Convención clínica: oído derecho (OD) rojo, oído izquierdo (OI) azul.
+  const earColor = isRight ? "#dc2626" : "#2563eb";
   const diagramSide: "right" | "left" = isRight ? "right" : "left";
   const [selectedFinding, setSelectedFinding] = useState<FindingType | null>(null);
   const [showCamera, setShowCamera] = useState(false);
@@ -51,11 +55,22 @@ export function EarPanel({ side, data, patientId, sessionId, patientName, report
       onChange: (images) => onChange({ ...data, images }),
     });
 
+  // Historial de marcas del diagrama timpánico (deshacer / atrás)
+  const marksHistoryRef = useRef<QuadrantMark[][]>([]);
+  const [canUndoMarks, setCanUndoMarks] = useState(false);
+
+  function pushMarksHistory() {
+    marksHistoryRef.current.push(data.marks.marks.map((m) => ({ ...m })));
+    if (marksHistoryRef.current.length > 50) marksHistoryRef.current.shift();
+    setCanUndoMarks(true);
+  }
+
   function handleMarkQuadrant(quadrant: QuadrantName) {
     const existingIdx = data.marks.marks.findIndex(
       (m) => m.quadrant === quadrant
     );
     let newMarks = [...data.marks.marks];
+    let changed = false;
 
     if (selectedFinding) {
       if (existingIdx >= 0) {
@@ -67,11 +82,28 @@ export function EarPanel({ side, data, patientId, sessionId, patientName, report
       } else {
         newMarks.push({ quadrant, finding: selectedFinding });
       }
+      changed = true;
     } else if (existingIdx >= 0) {
       newMarks.splice(existingIdx, 1);
+      changed = true;
     }
 
+    if (!changed) return;
+    pushMarksHistory();
     onChange({ ...data, marks: { marks: newMarks } });
+  }
+
+  function handleUndoMark() {
+    const prev = marksHistoryRef.current.pop();
+    if (!prev) return;
+    setCanUndoMarks(marksHistoryRef.current.length > 0);
+    onChange({ ...data, marks: { marks: prev } });
+  }
+
+  function handleClearMarks() {
+    if (data.marks.marks.length === 0) return;
+    pushMarksHistory();
+    onChange({ ...data, marks: { marks: [] } });
   }
 
   async function handleCapture(frameData: Uint8Array) {
@@ -122,14 +154,19 @@ export function EarPanel({ side, data, patientId, sessionId, patientName, report
     }
   }
 
+  const pneumatic = data.pneumatic ?? createEmptyPneumatic();
+  function setPneumatic(patch: Partial<PneumaticOtoscopy>) {
+    onChange({ ...data, pneumatic: { ...pneumatic, ...patch } });
+  }
+
   const loadPreviewImage = useCallback(() => {
     if (!previewImage) return Promise.resolve("");
     return loadImageUrl(previewImage.filename);
   }, [previewImage, loadImageUrl]);
 
   return (
-    <div className="rounded-xl border border-border-secondary bg-bg-secondary p-4">
-      <h3 className="mb-4 text-lg font-semibold text-text-primary">{title}</h3>
+    <div className="rounded-xl border border-border-secondary bg-bg-secondary p-4" style={{ borderTop: `3px solid ${earColor}` }}>
+      <h3 className="mb-4 text-lg font-semibold" style={{ color: earColor }}>{title}</h3>
 
       <div className="space-y-4">
         <div className={`flex items-start gap-4${readOnly ? " pointer-events-none opacity-75" : ""}`}>
@@ -150,12 +187,83 @@ export function EarPanel({ side, data, patientId, sessionId, patientName, report
           </div>
         </div>
 
+        {!readOnly && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSelectedFinding(null)}
+              disabled={!selectedFinding}
+              className="flex items-center gap-1.5 rounded-lg border border-border-secondary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary disabled:cursor-not-allowed disabled:opacity-40"
+              title={t("ear.diagram.cancelHint")}
+            >
+              <Ban size={13} />
+              {t("ear.diagram.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={handleUndoMark}
+              disabled={!canUndoMarks}
+              className="flex items-center gap-1.5 rounded-lg border border-border-secondary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary disabled:cursor-not-allowed disabled:opacity-40"
+              title={t("ear.diagram.undoHint")}
+            >
+              <Undo2 size={13} />
+              {t("ear.diagram.undo")}
+            </button>
+            <button
+              type="button"
+              onClick={handleClearMarks}
+              disabled={data.marks.marks.length === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-border-secondary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-danger-subtle hover:text-danger-text disabled:cursor-not-allowed disabled:opacity-40"
+              title={t("ear.diagram.clearHint")}
+            >
+              <Eraser size={13} />
+              {t("ear.diagram.clear")}
+            </button>
+          </div>
+        )}
+
         <div className={readOnly ? "pointer-events-none opacity-75" : ""}>
           <FindingsChecklist
             findings={data.findings}
             onChange={(findings) => onChange({ ...data, findings })}
             categoriesConfig={categoriesConfig}
           />
+        </div>
+
+        <div className={`space-y-2${readOnly ? " pointer-events-none opacity-75" : ""}`}>
+          <label className="block text-sm font-medium text-text-secondary">
+            {t("ear.pneumatic.label")}
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {(["", ...PNEUMATIC_MOBILITY_OPTIONS] as const).map((opt) => {
+              const active = pneumatic.mobility === opt;
+              const label = opt === "" ? t("ear.pneumatic.notAssessed") : t(`ear.pneumatic.${opt}`);
+              return (
+                <button
+                  key={opt || "none"}
+                  type="button"
+                  disabled={readOnly}
+                  onClick={() => setPneumatic({ mobility: opt })}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    active
+                      ? "border-accent bg-accent-subtle text-accent-text"
+                      : "border-border-secondary bg-bg-tertiary text-text-secondary hover:border-border-primary"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {pneumatic.mobility && (
+            <input
+              value={pneumatic.notes}
+              onChange={(e) => setPneumatic({ notes: e.target.value })}
+              disabled={readOnly}
+              placeholder={t("ear.pneumatic.notesPlaceholder")}
+              className="w-full rounded-lg border border-border-primary bg-bg-secondary px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-bg-tertiary disabled:text-text-tertiary"
+            />
+          )}
         </div>
 
         <div className="space-y-1">

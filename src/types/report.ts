@@ -1,6 +1,7 @@
-import type { EarFindings, EarMarks } from "./findings";
+import type { EarFindings, EarMarks, PneumaticOtoscopy } from "./findings";
 import type { EarImage } from "./image";
 import type { Patient } from "./patient";
+import type { Anamnesis } from "./anamnesis";
 import i18n from "@/i18n/config";
 
 export interface EarData {
@@ -8,6 +9,7 @@ export interface EarData {
   marks: EarMarks;
   images: EarImage[];
   observations: string;
+  pneumatic?: PneumaticOtoscopy;
 }
 
 export type ReportStatus = "in_progress" | "completed";
@@ -32,6 +34,7 @@ export interface Report {
   post_right_ear?: EarData;
   post_left_ear?: EarData;
   conclusion: string;
+  anamnesis?: Anamnesis | null;
   created_at: string;
   updated_at: string;
   findings_categories?: FindingsCategoryConfig[];
@@ -147,13 +150,25 @@ export function getDefaultFindingsCategories(): FindingsCategoryConfig[] {
         { key: "cae_exostosis", label: tf("findings.cae_exostosis.label"), enabled: true, description: tf("findings.cae_exostosis.description") },
       ],
     },
+    {
+      id: "otitis_externa",
+      name: tf("categories.otitis_externa"),
+      checks: [
+        { key: "cae_otitis_externa_diffuse", label: tf("findings.cae_otitis_externa_diffuse.label"), enabled: true, description: tf("findings.cae_otitis_externa_diffuse.description") },
+        { key: "cae_furuncle", label: tf("findings.cae_furuncle.label"), enabled: true, description: tf("findings.cae_furuncle.description") },
+        { key: "cae_eczema", label: tf("findings.cae_eczema.label"), enabled: true, description: tf("findings.cae_eczema.description") },
+        { key: "cae_otomycosis", label: tf("findings.cae_otomycosis.label"), enabled: true, description: tf("findings.cae_otomycosis.description") },
+        { key: "cae_otitis_externa_necrotizing", label: tf("findings.cae_otitis_externa_necrotizing.label"), enabled: true, description: tf("findings.cae_otitis_externa_necrotizing.description") },
+        { key: "cae_cellulitis", label: tf("findings.cae_cellulitis.label"), enabled: true, description: tf("findings.cae_cellulitis.description") },
+      ],
+    },
   ];
 }
 
 /** Re-translate findings categories using current i18n language.
  *  Known keys get their label/description from i18n; custom ones stay as-is. */
 export function translateFindingsCategories(categories: FindingsCategoryConfig[]): FindingsCategoryConfig[] {
-  const KNOWN_CATEGORY_IDS = ["membrane", "cae"];
+  const KNOWN_CATEGORY_IDS = ["membrane", "cae", "otitis_externa"];
   return categories.map((cat) => {
     const catName = KNOWN_CATEGORY_IDS.includes(cat.id)
       ? i18n.t(`categories.${cat.id}`, { ns: 'findings', defaultValue: cat.name })
