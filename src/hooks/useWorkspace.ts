@@ -121,9 +121,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }
 
   const selectWorkspace = useCallback(async (profileName?: string, avatar?: number) => {
-    const selected = await open({ directory: true, multiple: false });
-    if (selected) {
-      const path = selected as string;
+    let path: string;
+    if (await isAndroid()) {
+      // Android no tiene selector de carpeta nativo: usar la carpeta de datos de la app
+      path = await invoke<string>("auto_setup_workspace");
+    } else {
+      const selected = await open({ directory: true, multiple: false });
+      if (!selected) return false;
+      path = selected as string;
+    }
+    {
       await setWorkspace(path);
       setWorkspacePath(path);
 
@@ -187,7 +194,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setConfig(cfg);
       return true;
     }
-    return false;
   }, []);
 
   const updateConfig = useCallback(async (newConfig: WorkspaceConfig) => {
