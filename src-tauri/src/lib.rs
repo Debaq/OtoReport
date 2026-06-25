@@ -1,4 +1,5 @@
 mod commands;
+mod crypto;
 mod storage;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -7,8 +8,18 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
+        .manage(storage::vault::VaultState::default())
         .setup(|_app| Ok(()))
         .invoke_handler(tauri::generate_handler![
+            commands::auth::vault_exists,
+            commands::auth::vault_is_unlocked,
+            commands::auth::vault_setup,
+            commands::auth::vault_unlock,
+            commands::auth::vault_lock,
+            commands::auth::vault_change_password,
+            commands::migrate::legacy_data_exists,
+            commands::migrate::migrate_from_fs,
+            commands::audit::get_audit_log,
             commands::workspace::get_workspace,
             commands::workspace::set_workspace,
             commands::workspace::get_workspace_config,

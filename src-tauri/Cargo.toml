@@ -20,4 +20,13 @@ serde_json = "1"
 image = "0.25"
 uuid = { version = "1", features = ["v4"] }
 zip = "2"
+# Cripto (cifrado de datos clínicos) — pure-Rust, cross-compila a Android/iOS sin OpenSSL.
+aes-gcm = "0.10"
+argon2 = "0.5"
+rand = "0.8"
+zeroize = { version = "1.8", features = ["derive"] }
+thiserror = "1"
+redb = "2"          # DB embebida pure-Rust, 1 archivo (el "vault" cifrado)
+hmac = "0.12"       # HMAC-SHA256 para índice ciego de RUT
+sha2 = "0.10"
 

@@ -1,7 +1,31 @@
-use crate::commands::workspace::{self, FindingsCategoryConfig};
-use crate::storage::{file_manager, json_store};
+use crate::commands::audit;
+use crate::commands::workspace::FindingsCategoryConfig;
+use crate::storage::vault::{Store, VaultError, VaultState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tauri::State;
+
+fn report_key(patient_id: &str, session_id: &str) -> String {
+    format!("{}/{}", patient_id, session_id)
+}
+
+/// Reemplaza el segmento de sesión en una key de imagen `pid/sid/side/file`.
+fn replace_session_in_image_key(key: &str, new_session_id: &str) -> Option<String> {
+    let mut parts: Vec<&str> = key.split('/').collect();
+    if parts.len() < 4 {
+        return None;
+    }
+    parts[1] = new_session_id;
+    Some(parts.join("/"))
+}
+
+fn to_json(value: &impl Serialize) -> Result<Vec<u8>, VaultError> {
+    serde_json::to_vec(value).map_err(|e| VaultError::Crypto(e.to_string()))
+}
+
+fn from_json<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, VaultError> {
+    serde_json::from_slice(bytes).map_err(|e| VaultError::Corrupt(e.to_string()))
+}
 
 pub type EarFindings = HashMap<String, bool>;
 
@@ -132,218 +156,153 @@ pub struct SessionInfo {
     pub report_type: String,
 }
 
-fn session_path(
-    app: &tauri::AppHandle,
-    patient_id: &str,
-    session_id: &str,
-) -> Result<std::path::PathBuf, String> {
-    let ws = workspace::get_workspace_path(app)?;
-    let path = ws
-        .join("patients")
-        .join(patient_id)
-        .join("sessions")
-        .join(session_id);
-    Ok(path)
-}
-
+/// Crear sesión ya no necesita crear carpetas (el vault no usa FS por sesión).
+/// Se mantiene por compatibilidad con el frontend: el reporte se crea al guardar.
 #[tauri::command]
 pub fn create_session(
-    app: tauri::AppHandle,
-    patient_id: String,
-    session_id: String,
-    report_type: Option<String>,
+    _patient_id: String,
+    _session_id: String,
+    _report_type: Option<String>,
 ) -> Result<(), String> {
-    let path = session_path(&app, &patient_id, &session_id)?;
-    file_manager::ensure_dir(&path)?;
-
-    let rt = report_type.unwrap_or_else(|| "otoscopy".to_string());
-    if rt == "ear_wash" {
-        file_manager::ensure_dir(&path.join("pre_right"))?;
-        file_manager::ensure_dir(&path.join("pre_left"))?;
-        file_manager::ensure_dir(&path.join("post_right"))?;
-        file_manager::ensure_dir(&path.join("post_left"))?;
-    } else {
-        file_manager::ensure_dir(&path.join("right"))?;
-        file_manager::ensure_dir(&path.join("left"))?;
-    }
     Ok(())
 }
 
 #[tauri::command]
-pub fn save_report(app: tauri::AppHandle, report: Report) -> Result<(), String> {
-    let path = session_path(&app, &report.patient_id, &report.session_id)?;
-    file_manager::ensure_dir(&path)?;
-    json_store::write_json(&path.join("report.json"), &report)
+pub fn save_report(state: State<VaultState>, report: Report) -> Result<(), String> {
+    state.with(|v| {
+        let bytes = to_json(&report)?;
+        v.put(Store::Reports, &report_key(&report.patient_id, &report.session_id), &bytes)
+    })
 }
 
 #[tauri::command]
 pub fn load_report(
-    app: tauri::AppHandle,
+    state: State<VaultState>,
     patient_id: String,
     session_id: String,
 ) -> Result<Report, String> {
-    let path = session_path(&app, &patient_id, &session_id)?;
-    json_store::read_json(&path.join("report.json"))
+    state.with(|v| {
+        let bytes = v
+            .get(Store::Reports, &report_key(&patient_id, &session_id))?
+            .ok_or_else(|| VaultError::Corrupt("reporte no encontrado".into()))?;
+        from_json::<Report>(&bytes)
+    })
+}
+
+fn session_info_from_report(r: &Report) -> SessionInfo {
+    SessionInfo {
+        id: r.session_id.clone(),
+        patient_id: r.patient_id.clone(),
+        patient_name: r.patient.name.clone(),
+        created_at: r.created_at.clone(),
+        status: r.status.clone(),
+        report_type: r.report_type.clone(),
+    }
 }
 
 #[tauri::command]
-pub fn list_sessions(app: tauri::AppHandle) -> Result<Vec<SessionInfo>, String> {
-    let ws = workspace::get_workspace_path(&app)?;
-    let patients_dir = ws.join("patients");
-    if !patients_dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    let mut sessions = Vec::new();
-    let patient_ids = file_manager::list_dirs(&patients_dir)?;
-
-    for pid in patient_ids {
-        let patient_path = patients_dir.join(&pid).join("patient.json");
-        let patient_name = if patient_path.exists() {
-            json_store::read_json::<crate::commands::patients::Patient>(&patient_path)
-                .map(|p| p.name)
-                .unwrap_or_else(|_| "Desconocido".to_string())
-        } else {
-            continue;
-        };
-
-        let sessions_dir = patients_dir.join(&pid).join("sessions");
-        if !sessions_dir.exists() {
-            continue;
+pub fn list_sessions(state: State<VaultState>) -> Result<Vec<SessionInfo>, String> {
+    state.with(|v| {
+        let mut sessions = Vec::new();
+        for (_, bytes) in v.list(Store::Reports)? {
+            if let Ok(r) = from_json::<Report>(&bytes) {
+                sessions.push(session_info_from_report(&r));
+            }
         }
-
-        let session_ids = file_manager::list_dirs(&sessions_dir)?;
-        for sid in session_ids {
-            let report_path = sessions_dir.join(&sid).join("report.json");
-            let (created_at, status, report_type) = if report_path.exists() {
-                json_store::read_json::<Report>(&report_path)
-                    .map(|r| (r.created_at, r.status, r.report_type))
-                    .unwrap_or_else(|_| (sid.clone(), default_status(), default_report_type()))
-            } else {
-                (sid.clone(), default_status(), default_report_type())
-            };
-
-            sessions.push(SessionInfo {
-                id: sid,
-                patient_id: pid.clone(),
-                patient_name: patient_name.clone(),
-                created_at,
-                status,
-                report_type,
-            });
-        }
-    }
-
-    sessions.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-    Ok(sessions)
+        sessions.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        Ok(sessions)
+    })
 }
 
 #[tauri::command]
 pub fn list_patient_sessions(
-    app: tauri::AppHandle,
+    state: State<VaultState>,
     patient_id: String,
 ) -> Result<Vec<SessionInfo>, String> {
-    let ws = workspace::get_workspace_path(&app)?;
-    let patient_path = ws.join("patients").join(&patient_id);
-
-    let patient_name = {
-        let p_path = patient_path.join("patient.json");
-        if p_path.exists() {
-            json_store::read_json::<crate::commands::patients::Patient>(&p_path)
-                .map(|p| p.name)
-                .unwrap_or_else(|_| "Desconocido".to_string())
-        } else {
-            "Desconocido".to_string()
+    state.with(|v| {
+        let prefix = format!("{}/", patient_id);
+        let mut sessions = Vec::new();
+        for (_, bytes) in v.list_prefix(Store::Reports, &prefix)? {
+            if let Ok(r) = from_json::<Report>(&bytes) {
+                sessions.push(session_info_from_report(&r));
+            }
         }
-    };
-
-    let sessions_dir = patient_path.join("sessions");
-    if !sessions_dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    let mut sessions = Vec::new();
-    let session_ids = file_manager::list_dirs(&sessions_dir)?;
-
-    for sid in session_ids {
-        let report_path = sessions_dir.join(&sid).join("report.json");
-        let (created_at, status, report_type) = if report_path.exists() {
-            json_store::read_json::<Report>(&report_path)
-                .map(|r| (r.created_at, r.status, r.report_type))
-                .unwrap_or_else(|_| (sid.clone(), default_status(), default_report_type()))
-        } else {
-            (sid.clone(), default_status(), default_report_type())
-        };
-
-        sessions.push(SessionInfo {
-            id: sid,
-            patient_id: patient_id.clone(),
-            patient_name: patient_name.clone(),
-            created_at,
-            status,
-            report_type,
-        });
-    }
-
-    sessions.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-    Ok(sessions)
+        sessions.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        Ok(sessions)
+    })
 }
 
 #[tauri::command]
 pub fn delete_session(
     app: tauri::AppHandle,
+    state: State<VaultState>,
     patient_id: String,
     session_id: String,
 ) -> Result<(), String> {
-    let path = session_path(&app, &patient_id, &session_id)?;
-    if path.exists() {
-        file_manager::remove_dir_all(&path)
-    } else {
-        Err("Sesión no encontrada".to_string())
+    let result = state.with(|v| {
+        let existed = v.delete(Store::Reports, &report_key(&patient_id, &session_id))?;
+        // Borrar todas las imágenes de la sesión.
+        let prefix = format!("{}/{}/", patient_id, session_id);
+        v.delete_prefix(Store::Images, &prefix)?;
+        if existed {
+            Ok(())
+        } else {
+            Err(VaultError::Corrupt("sesión no encontrada".into()))
+        }
+    });
+    if result.is_ok() {
+        audit::record(&app, &state, "session.delete", &report_key(&patient_id, &session_id));
     }
+    result
 }
 
 #[tauri::command]
 pub fn duplicate_session(
     app: tauri::AppHandle,
+    state: State<VaultState>,
     patient_id: String,
     session_id: String,
 ) -> Result<String, String> {
-    let src = session_path(&app, &patient_id, &session_id)?;
-    if !src.exists() {
-        return Err("Sesión no encontrada".to_string());
-    }
-
     let new_id = uuid::Uuid::new_v4().to_string();
-    let dest = session_path(&app, &patient_id, &new_id)?;
-    copy_dir_recursive(&src, &dest)?;
+    state.with(|v| {
+        let bytes = v
+            .get(Store::Reports, &report_key(&patient_id, &session_id))?
+            .ok_or_else(|| VaultError::Corrupt("sesión no encontrada".into()))?;
+        let mut report = from_json::<Report>(&bytes)?;
 
-    // Update IDs inside the duplicated report.json
-    let report_path = dest.join("report.json");
-    if report_path.exists() {
-        if let Ok(mut report) = json_store::read_json::<Report>(&report_path) {
-            report.id = uuid::Uuid::new_v4().to_string();
-            report.session_id = new_id.clone();
-            report.status = default_status();
-            report.created_at = chrono_now();
-            report.updated_at = chrono_now();
-            // Recalcular edad desde fecha de nacimiento del paciente actual
-            if let Ok(patient) = json_store::read_json::<crate::commands::patients::Patient>(
-                &src.parent().unwrap().parent().unwrap().join("patient.json"),
-            ) {
+        report.id = uuid::Uuid::new_v4().to_string();
+        report.session_id = new_id.clone();
+        report.status = default_status();
+        report.created_at = chrono_now();
+        report.updated_at = chrono_now();
+
+        // Recalcular edad desde la fecha de nacimiento del paciente actual.
+        if let Some(pb) = v.get(Store::Patients, &patient_id)? {
+            if let Ok(patient) = from_json::<crate::commands::patients::Patient>(&pb) {
                 report.patient.age = calculate_age(&patient.birth_date);
                 report.patient.birth_date = patient.birth_date;
             }
-            let _ = json_store::write_json(&report_path, &report);
         }
-    }
 
+        let nb = to_json(&report)?;
+        v.put(Store::Reports, &report_key(&patient_id, &new_id), &nb)?;
+
+        // Copiar imágenes de la sesión origen, reasignando el id de sesión.
+        let src_prefix = format!("{}/{}/", patient_id, session_id);
+        for (key, img_bytes) in v.list_prefix(Store::Images, &src_prefix)? {
+            if let Some(nk) = replace_session_in_image_key(&key, &new_id) {
+                v.put(Store::Images, &nk, &img_bytes)?;
+            }
+        }
+        Ok(())
+    })?;
+    audit::record(&app, &state, "session.duplicate", &report_key(&patient_id, &new_id));
     Ok(new_id)
 }
 
 #[tauri::command]
 pub fn import_session_ears(
-    app: tauri::AppHandle,
+    state: State<VaultState>,
     source_patient_id: String,
     source_session_id: String,
     target_patient_id: String,
@@ -351,40 +310,46 @@ pub fn import_session_ears(
     target_right_dir: String,
     target_left_dir: String,
 ) -> Result<(), String> {
-    let src = session_path(&app, &source_patient_id, &source_session_id)?;
-    let dest = session_path(&app, &target_patient_id, &target_session_id)?;
+    state.with(|v| {
+        let src_prefix = format!("{}/{}/", source_patient_id, source_session_id);
+        let imgs = v.list_prefix(Store::Images, &src_prefix)?;
+        if imgs.is_empty() {
+            return Err(VaultError::Corrupt("sesión origen sin imágenes".into()));
+        }
 
-    // Determine source directories - otoscopy uses right/left, ear_wash uses pre_right/pre_left
-    let src_right = if src.join("right").exists() {
-        src.join("right")
-    } else if src.join("pre_right").exists() {
-        src.join("pre_right")
-    } else {
-        return Err("Directorio de oído derecho no encontrado en sesión origen".to_string());
-    };
-    let src_left = if src.join("left").exists() {
-        src.join("left")
-    } else if src.join("pre_left").exists() {
-        src.join("pre_left")
-    } else {
-        return Err("Directorio de oído izquierdo no encontrado en sesión origen".to_string());
-    };
+        // Limpiar destinos antes de copiar.
+        let dest_right_prefix =
+            format!("{}/{}/{}/", target_patient_id, target_session_id, target_right_dir);
+        let dest_left_prefix =
+            format!("{}/{}/{}/", target_patient_id, target_session_id, target_left_dir);
+        v.delete_prefix(Store::Images, &dest_right_prefix)?;
+        v.delete_prefix(Store::Images, &dest_left_prefix)?;
 
-    let dest_right = dest.join(&target_right_dir);
-    let dest_left = dest.join(&target_left_dir);
-
-    // Clean target directories and copy
-    if dest_right.exists() {
-        file_manager::remove_dir_all(&dest_right)?;
-    }
-    copy_dir_recursive(&src_right, &dest_right)?;
-
-    if dest_left.exists() {
-        file_manager::remove_dir_all(&dest_left)?;
-    }
-    copy_dir_recursive(&src_left, &dest_left)?;
-
-    Ok(())
+        for (key, img_bytes) in imgs {
+            // key = spid/ssid/side/filename
+            let parts: Vec<&str> = key.split('/').collect();
+            if parts.len() < 4 {
+                continue;
+            }
+            let side = parts[2];
+            let filename = parts[3..].join("/");
+            let is_right = side == "right" || side == "pre_right" || side == "post_right";
+            let is_left = side == "left" || side == "pre_left" || side == "post_left";
+            let target_dir = if is_right {
+                &target_right_dir
+            } else if is_left {
+                &target_left_dir
+            } else {
+                continue;
+            };
+            let nk = format!(
+                "{}/{}/{}/{}",
+                target_patient_id, target_session_id, target_dir, filename
+            );
+            v.put(Store::Images, &nk, &img_bytes)?;
+        }
+        Ok(())
+    })
 }
 
 fn calculate_age(birth_date: &str) -> i32 {
@@ -464,20 +429,4 @@ fn civil_from_days(days_since_epoch: i64) -> (i32, u32, u32) {
     let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
     let year = if m <= 2 { y + 1 } else { y };
     (year as i32, m, d)
-}
-
-fn copy_dir_recursive(src: &std::path::Path, dest: &std::path::Path) -> Result<(), String> {
-    file_manager::ensure_dir(dest)?;
-    let entries = std::fs::read_dir(src).map_err(|e| e.to_string())?;
-    for entry in entries {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let src_path = entry.path();
-        let dest_path = dest.join(entry.file_name());
-        if src_path.is_dir() {
-            copy_dir_recursive(&src_path, &dest_path)?;
-        } else {
-            std::fs::copy(&src_path, &dest_path).map_err(|e| e.to_string())?;
-        }
-    }
-    Ok(())
 }

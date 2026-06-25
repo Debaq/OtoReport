@@ -1,9 +1,12 @@
+pub mod audit;
+pub mod auth;
 pub mod contribute;
 pub mod edu_anim;
 pub mod edu_cache;
 pub mod export;
 pub mod findings_cache;
 pub mod images;
+pub mod migrate;
 pub mod patients;
 pub mod reports;
 pub mod workspace;

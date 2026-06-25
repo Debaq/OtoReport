@@ -1,5 +1,7 @@
 import { createHashRouter, RouterProvider } from "react-router-dom";
 import { WorkspaceProvider, useWorkspace } from "@/hooks/useWorkspace";
+import { AuthProvider } from "@/hooks/useAuth";
+import { VaultGate } from "@/components/auth/VaultGate";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 import { UpdateModal } from "@/components/ui/UpdateModal";
 import { ThemeProvider } from "@/hooks/useTheme";
@@ -79,23 +81,28 @@ function AppContent() {
     return <WorkspaceSetup />;
   }
 
-  if (profiles.length > 1 && !profileSelected) {
-    return <ProfileSelector />;
-  }
-
   return (
-    <>
-      <RouterProvider router={router} />
-      {update.updateAvailable && !update.dismissed && update.latestVersion && update.releaseUrl && (
-        <UpdateModal
-          open
-          onClose={update.dismiss}
-          latestVersion={update.latestVersion}
-          releaseNotes={update.releaseNotes}
-          releaseUrl={update.releaseUrl}
-        />
+    <VaultGate>
+      {profiles.length > 1 && !profileSelected ? (
+        <ProfileSelector />
+      ) : (
+        <>
+          <RouterProvider router={router} />
+          {update.updateAvailable &&
+            !update.dismissed &&
+            update.latestVersion &&
+            update.releaseUrl && (
+              <UpdateModal
+                open
+                onClose={update.dismiss}
+                latestVersion={update.latestVersion}
+                releaseNotes={update.releaseNotes}
+                releaseUrl={update.releaseUrl}
+              />
+            )}
+        </>
       )}
-    </>
+    </VaultGate>
   );
 }
 
@@ -104,8 +111,10 @@ function App() {
     <ThemeProvider>
       <ToastProvider>
         <WorkspaceProvider>
-          <AppContent />
-          <KonamiEasterEgg />
+          <AuthProvider>
+            <AppContent />
+            <KonamiEasterEgg />
+          </AuthProvider>
         </WorkspaceProvider>
       </ToastProvider>
     </ThemeProvider>
