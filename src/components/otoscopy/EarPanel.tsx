@@ -4,6 +4,7 @@ import { Undo2, Eraser, Ban } from "lucide-react";
 import { compositeAnnotations } from "@/lib/annotation-renderer";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
+import { useToast } from "@/components/ui/Toast";
 import type { EarData, FindingsCategoryConfig } from "@/types";
 import type { EarSide, EarImage } from "@/types/image";
 import { FindingType, QuadrantName, PNEUMATIC_MOBILITY_OPTIONS, createEmptyPneumatic } from "@/types/findings";
@@ -31,8 +32,15 @@ interface EarPanelProps {
   categoriesConfig?: FindingsCategoryConfig[];
 }
 
+/** Extensión segura: la URI content:// de Android no trae extensión usable. */
+function safeImageExt(path: string): string {
+  const raw = path.split("?")[0].split("#")[0].split(".").pop()?.toLowerCase() ?? "";
+  return ["png", "jpg", "jpeg", "bmp", "webp"].includes(raw) ? raw : "jpg";
+}
+
 export function EarPanel({ side, data, patientId, sessionId, patientName, reportDate, onChange, onMoveImage, readOnly, categoriesConfig }: EarPanelProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const isRight = side === "right" || side === "pre_right" || side === "post_right";
   const title = isRight ? t("ear.right") : t("ear.left");
   // Convención clínica: oído derecho (OD) rojo, oído izquierdo (OI) azul.
@@ -111,24 +119,40 @@ export function EarPanel({ side, data, patientId, sessionId, patientName, report
   }
 
   async function handleLoadFile() {
-    const selected = await open({
-      multiple: true,
-      filters: [
-        { name: t("ear.imageFilterName"), extensions: ["png", "jpg", "jpeg", "bmp", "webp"] },
-      ],
-    });
-    if (selected) {
-      const paths = Array.isArray(selected) ? selected : [selected];
-      setLoadingFiles(true);
-      try {
-        for (const filePath of paths) {
+    let selected;
+    try {
+      selected = await open({
+        multiple: true,
+        filters: [
+          { name: t("ear.imageFilterName"), extensions: ["png", "jpg", "jpeg", "bmp", "webp"] },
+        ],
+      });
+    } catch (e) {
+      console.error("open dialog failed:", e);
+      toast(t("ear.loadError", "No se pudo abrir el selector de archivos") + `: ${e}`, "error");
+      return;
+    }
+    if (!selected) return;
+
+    const paths = Array.isArray(selected) ? selected : [selected];
+    setLoadingFiles(true);
+    let failures = 0;
+    try {
+      for (const filePath of paths) {
+        try {
           const data = await readFile(filePath);
-          const ext = filePath.split(".").pop() || "png";
-          await addImage(new Uint8Array(data), "file", ext);
+          await addImage(new Uint8Array(data), "file", safeImageExt(filePath));
+        } catch (e) {
+          failures++;
+          console.error("load image failed:", filePath, e);
+          toast(t("ear.loadImageError", "Error al cargar la imagen") + `: ${e}`, "error");
         }
-      } finally {
-        setLoadingFiles(false);
       }
+    } finally {
+      setLoadingFiles(false);
+    }
+    if (failures === 0 && paths.length > 0) {
+      toast(t("ear.loadImageOk", "Imagen(es) cargada(s)"), "success");
     }
   }
 

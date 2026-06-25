@@ -7,6 +7,7 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { X, Download, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
+import { useToast } from "@/components/ui/Toast";
 import { PdfReport } from "@/components/export/PdfReport";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { isAndroid } from "@/lib/platform";
@@ -62,6 +63,7 @@ export function ReportPreview({
   onClose,
 }: ReportPreviewProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const { config } = useWorkspace();
   const resolvedConfig = config ? { ...defaultConfig, ...config } : defaultConfig;
 
@@ -285,6 +287,7 @@ export function ReportPreview({
       }
     } catch (err) {
       console.error("Error exporting PDF:", err);
+      toast(t("report.exportError", "No se pudo exportar el PDF") + `: ${err}`, "error");
     } finally {
       setStatus("ready");
     }

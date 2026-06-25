@@ -28,6 +28,7 @@
       "allow": [
         { "path": "$APPDATA/**" },
         { "path": "$APPLOCALDATA/**" },
+        { "path": "$APPCACHE/**" },
         { "path": "$HOME/**" },
         { "path": "$DOCUMENT/**" },
         { "path": "$DESKTOP/**" },
