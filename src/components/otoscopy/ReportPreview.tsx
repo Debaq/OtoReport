@@ -69,6 +69,7 @@ export function ReportPreview({
 
   const [status, setStatus] = useState<"generating" | "ready" | "exporting" | "error">("generating");
   const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const isEarWash = report.report_type === "ear_wash";
 
@@ -247,10 +248,20 @@ export function ReportPreview({
         if (cancelled) return;
         setPreviewPath(path);
         setStatus("ready");
-        await openPath(path);
+        // Abrir el visor es secundario: si falla (sin visor PDF, etc.) no
+        // marcamos como error; el PDF ya se generó y se puede abrir/guardar.
+        try {
+          await openPath(path);
+        } catch (openErr) {
+          console.error("No se pudo abrir el visor de PDF:", openErr);
+          toast(t("report.openViewerError", "PDF generado, pero no se pudo abrir el visor") + `: ${openErr}`, "error");
+        }
       } catch (err) {
         console.error("Error generating preview:", err);
-        if (!cancelled) setStatus("error");
+        if (!cancelled) {
+          setErrorMsg(String(err));
+          setStatus("error");
+        }
       }
     })();
 
@@ -309,8 +320,11 @@ export function ReportPreview({
               <span className="text-sm">{t("report.pdfDialog.generating")}</span>
             </div>
           ) : status === "error" ? (
-            <div className="py-6 text-center text-danger-text">
-              {t("report.pdfDialog.error")}
+            <div className="flex flex-col gap-2 py-6 text-center">
+              <span className="text-danger-text">{t("report.pdfDialog.error")}</span>
+              {errorMsg && (
+                <span className="break-words text-xs text-text-tertiary">{errorMsg}</span>
+              )}
             </div>
           ) : (
             <>
