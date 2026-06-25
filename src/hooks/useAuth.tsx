@@ -7,7 +7,6 @@ import {
   type ReactNode,
 } from "react";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { isMobile } from "@/lib/platform";
 import {
   legacyDataExists,
   migrateFromFs,
@@ -115,7 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus("locked");
   }, []);
 
-  // Auto-bloqueo: por inactividad (todas las plataformas) y al ir a background (mobile).
+  // Auto-bloqueo solo por inactividad (todas las plataformas).
+  // NOTA: NO se bloquea al ir a background. En Android, abrir el selector de
+  // galería/cámara/visor de PDF manda la app a background; bloquear ahí cerraba
+  // el vault en mitad del flujo (la imagen no se guardaba, fallaba el PDF).
   useEffect(() => {
     if (status !== "unlocked") return;
     let timer: ReturnType<typeof setTimeout>;
@@ -129,17 +131,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     resetIdle();
 
-    let mobile = false;
-    isMobile().then((m) => (mobile = m));
-    const onVisibility = () => {
-      if (document.hidden && mobile) void lock();
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-
     return () => {
       clearTimeout(timer);
       activity.forEach((e) => window.removeEventListener(e, resetIdle));
-      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [status, lock]);
 
