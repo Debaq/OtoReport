@@ -4,6 +4,7 @@ import { pdf } from "@react-pdf/renderer";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { shareFile } from "tauri-plugin-share";
 import { X, Download, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
@@ -70,6 +71,11 @@ export function ReportPreview({
   const [status, setStatus] = useState<"generating" | "ready" | "exporting" | "error">("generating");
   const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [androidPlatform, setAndroidPlatform] = useState(false);
+
+  useEffect(() => {
+    isAndroid().then(setAndroidPlatform);
+  }, []);
 
   const isEarWash = report.report_type === "ear_wash";
 
@@ -248,13 +254,16 @@ export function ReportPreview({
         if (cancelled) return;
         setPreviewPath(path);
         setStatus("ready");
-        // Abrir el visor es secundario: si falla (sin visor PDF, etc.) no
-        // marcamos como error; el PDF ya se generó y se puede abrir/guardar.
-        try {
-          await openPath(path);
-        } catch (openErr) {
-          console.error("No se pudo abrir el visor de PDF:", openErr);
-          toast(t("report.openViewerError", "PDF generado, pero no se pudo abrir el visor") + `: ${openErr}`, "error");
+        // En Android el opener está roto: no auto-abrimos; el usuario usa
+        // "Compartir PDF". En desktop abrimos el visor (secundario: si falla
+        // no marcamos error, el PDF ya está generado).
+        if (!(await isAndroid())) {
+          try {
+            await openPath(path);
+          } catch (openErr) {
+            console.error("No se pudo abrir el visor de PDF:", openErr);
+            toast(t("report.openViewerError", "PDF generado, pero no se pudo abrir el visor") + `: ${openErr}`, "error");
+          }
         }
       } catch (err) {
         console.error("Error generating preview:", err);
@@ -269,8 +278,16 @@ export function ReportPreview({
   }, [diagramsReady, rightDiagramUrl, leftDiagramUrl, postRightDiagramUrl, postLeftDiagramUrl, logoUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleOpenPreview() {
-    if (previewPath) {
-      await openPath(previewPath);
+    if (!previewPath) return;
+    try {
+      if (await isAndroid()) {
+        await shareFile(previewPath, "application/pdf");
+      } else {
+        await openPath(previewPath);
+      }
+    } catch (err) {
+      console.error("Error abriendo/compartiendo PDF:", err);
+      toast(t("report.openViewerError", "No se pudo abrir/compartir el PDF") + `: ${err}`, "error");
     }
   }
 
@@ -284,8 +301,8 @@ export function ReportPreview({
 
       if (await isAndroid()) {
         const cachedPath = await invoke<string>("save_pdf_to_cache", { filename, data: bytes });
-        await openPath(cachedPath);
-
+        // Compartir vía share sheet nativo (openPath está roto en Android).
+        await shareFile(cachedPath, "application/pdf");
       } else {
         const filePath = await save({
           defaultPath: filename,
@@ -329,19 +346,27 @@ export function ReportPreview({
           ) : (
             <>
               <p className="text-sm text-text-secondary">
-                {t("report.pdfDialog.success")}
+                {androidPlatform
+                  ? t("report.pdfDialog.successAndroid", "El PDF se generó. Compártelo para enviarlo o guardarlo.")
+                  : t("report.pdfDialog.success")}
               </p>
-              <Button onClick={handleOpenPreview} disabled={!previewPath}>
-                <ExternalLink size={16} />
-                {t("report.pdfDialog.openPreview")}
-              </Button>
-              <Button
-                onClick={handleExport}
-                disabled={status === "exporting"}
-              >
-                <Download size={16} />
-                {status === "exporting" ? t("report.pdfDialog.exporting") : t("report.pdfDialog.save")}
-              </Button>
+              {androidPlatform ? (
+                <Button onClick={handleOpenPreview} disabled={!previewPath}>
+                  <ExternalLink size={16} />
+                  {t("report.pdfDialog.share", "Compartir PDF")}
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={handleOpenPreview} disabled={!previewPath}>
+                    <ExternalLink size={16} />
+                    {t("report.pdfDialog.openPreview")}
+                  </Button>
+                  <Button onClick={handleExport} disabled={status === "exporting"}>
+                    <Download size={16} />
+                    {status === "exporting" ? t("report.pdfDialog.exporting") : t("report.pdfDialog.save")}
+                  </Button>
+                </>
+              )}
             </>
           )}
         </div>

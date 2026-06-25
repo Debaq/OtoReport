@@ -15,6 +15,7 @@ tauri = { version = "2", features = ["devtools"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-share = "2"   # compartir archivos (PDF) vía share sheet nativo en Android
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 image = "0.25"

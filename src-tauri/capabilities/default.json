@@ -23,6 +23,7 @@
     "fs:allow-write-file",
     "opener:default",
     "opener:allow-open-path",
+    "share:allow-share-file",
     {
       "identifier": "opener:allow-open-path",
       "allow": [
