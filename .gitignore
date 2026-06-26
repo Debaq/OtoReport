@@ -4,3 +4,6 @@ src-tauri/target
 *.jks
 *.keystore
 keystore.b64
+
+# Config local de Claude Code
+.claude/
